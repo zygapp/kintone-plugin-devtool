@@ -1,0 +1,33 @@
+{
+  "name": "@zygapp/kintone-plugin-devtool",
+  "version": "0.1.0",
+  "description": "kintone プラグイン開発ツール - Vite + HMR による高速開発環境",
+  "main": "index.js",
+  "bin": {
+    "kpdev": "index.js"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "keywords": [
+    "kintone",
+    "plugin",
+    "vite",
+    "hmr",
+    "development"
+  ],
+  "author": "zygapp",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zygapp/kintone-plugin-devtool.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "index.js",
+    "postinstall.js",
+    "bin/"
+  ]
+}

@@ -27,6 +27,7 @@ clean:
 	-rm -rf $(NPM_DIR)/bin/linux-*
 	-rm -rf $(NPM_DIR)/bin/win32-*
 	-rm -f $(NPM_DIR)/bin/.binary-path
+	-rm -f $(NPM_DIR)/README.md
 
 test:
 	go test ./...
@@ -56,6 +57,8 @@ build-all: clean version-sync
 
 # npmパッケージにバイナリをコピー
 npm-prepare: build-all
+	@echo "Copying README.md to npm package..."
+	@cp README.md $(NPM_DIR)/README.md
 	@echo "Copying binaries to npm package..."
 	@mkdir -p $(NPM_DIR)/bin/darwin-x64
 	@mkdir -p $(NPM_DIR)/bin/darwin-arm64

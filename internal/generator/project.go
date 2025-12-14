@@ -368,10 +368,9 @@ dist/
 # Environment
 .env
 
-# kpdev managed files (secrets)
+# kpdev managed files
 .kpdev/config.json
 .kpdev/certs/
-.kpdev/keys/
 
 # IDE
 .idea/

@@ -807,7 +807,6 @@ finalZip := createZip(contentsZip, pubKeyDer, signature)
 .env
 .kpdev/config.json
 .kpdev/certs/
-.kpdev/keys/
 node_modules/
 dist/
 ```
@@ -819,14 +818,13 @@ dist/
 - `.kpdev/vite.config.ts` - フレームワーク設定を共有
 - `.kpdev/manifest.json` - プラグイン定義を共有
 - `.kpdev/managed/` - ローダーとメタデータを共有
+- `.kpdev/keys/` - **秘密鍵を共有（プラグインID維持のため必須）**
 
 ### 秘密鍵の扱い
 
-- `.kpdev/keys/` は **絶対にコミットしない**
-- チームで共有する場合は安全な方法（1Password等）で共有
-- 秘密鍵を紛失するとプラグインIDが変わり、既存インストールが無効になる
-- **開発用鍵は共有不要**（各開発者が独自に生成）
-- **本番用鍵のみチーム共有**
+- `.kpdev/keys/` は **Gitで追跡する**（プラグインIDを維持するため）
+- 秘密鍵を変更するとプラグインIDが変わり、既存インストールが無効になる
+- チームメンバー全員が同じ秘密鍵を使用することで、一貫したプラグインIDを維持
 
 ## 17. 実装技術（Go本体）
 

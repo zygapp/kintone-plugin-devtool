@@ -113,8 +113,13 @@ func GenerateLoader(projectDir string, answers *prompt.InitAnswers, version stri
 		return err
 	}
 
-	// icon.png をコピー
+	// icon.png をコピー（存在しない場合は生成）
 	srcIcon := filepath.Join(projectDir, "icon.png")
+	if _, err := os.Stat(srcIcon); os.IsNotExist(err) {
+		if err := GenerateIcon(projectDir); err != nil {
+			return fmt.Errorf("アイコン生成に失敗: %w", err)
+		}
+	}
 	dstIcon := filepath.Join(devPluginDir, "icon.png")
 	if err := copyFile(srcIcon, dstIcon); err != nil {
 		return err

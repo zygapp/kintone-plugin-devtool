@@ -53,8 +53,13 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 		return "", fmt.Errorf("manifest生成エラー: %w", err)
 	}
 
-	// icon.png をコピー
+	// icon.png をコピー（存在しない場合は生成）
 	srcIcon := filepath.Join(projectDir, "icon.png")
+	if _, err := os.Stat(srcIcon); os.IsNotExist(err) {
+		if err := generator.GenerateIcon(projectDir); err != nil {
+			return "", fmt.Errorf("アイコン生成エラー: %w", err)
+		}
+	}
 	dstIcon := filepath.Join(pluginDir, "icon.png")
 	if err := copyFile(srcIcon, dstIcon); err != nil {
 		return "", fmt.Errorf("iconコピーエラー: %w", err)

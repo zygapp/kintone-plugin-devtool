@@ -36,7 +36,7 @@ func GenerateProject(projectDir string, answers *prompt.InitAnswers) error {
 	}
 
 	// icon.png (placeholder)
-	if err := generateIcon(projectDir); err != nil {
+	if err := GenerateIcon(projectDir); err != nil {
 		return err
 	}
 
@@ -292,7 +292,8 @@ func generateAppComponent(dir string, answers *prompt.InitAnswers, target string
 	return os.WriteFile(filepath.Join(dir, filename), []byte(content), 0644)
 }
 
-func generateIcon(projectDir string) error {
+// GenerateIcon generates a default 56x56 plugin icon
+func GenerateIcon(projectDir string) error {
 	// 56x56 サンプルアイコンを生成
 	img := image.NewRGBA(image.Rect(0, 0, 56, 56))
 

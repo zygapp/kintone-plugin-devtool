@@ -66,7 +66,7 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 	}
 
 	// config.html を生成
-	if err := generateProdConfigHTML(pluginDir); err != nil {
+	if err := generateProdConfigHTML(projectDir, pluginDir); err != nil {
 		return "", fmt.Errorf("config.html生成エラー: %w", err)
 	}
 
@@ -241,32 +241,21 @@ func generateProdManifest(projectDir, pluginDir string, cfg *config.Config) erro
 	return os.WriteFile(filepath.Join(pluginDir, "manifest.json"), outData, 0644)
 }
 
-func generateProdConfigHTML(pluginDir string) error {
+func generateProdConfigHTML(projectDir, pluginDir string) error {
 	htmlDir := filepath.Join(pluginDir, "html")
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		return err
 	}
 
-	// CSS が存在するかチェック
-	cssLink := ""
-	if _, err := os.Stat(filepath.Join(pluginDir, "css", "config.css")); err == nil {
-		cssLink = `  <link rel="stylesheet" href="../css/config.css">`
+	// src/config/index.html からコピー
+	srcPath := filepath.Join(projectDir, "src", "config", "index.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		// ファイルが存在しない場合はデフォルト
+		content = []byte("<div id=\"config-root\"></div>\n")
 	}
 
-	content := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-%s
-</head>
-<body>
-  <div id="config-root"></div>
-  <script src="../js/config.js"></script>
-</body>
-</html>
-`, cssLink)
-
-	return os.WriteFile(filepath.Join(htmlDir, "config.html"), []byte(content), 0644)
+	return os.WriteFile(filepath.Join(htmlDir, "config.html"), content, 0644)
 }
 
 func getManifestVersion(projectDir string) string {

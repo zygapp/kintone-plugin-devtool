@@ -89,6 +89,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	if isExisting {
 		fmt.Printf("\n%s 既存プロジェクトを再初期化中...\n", cyan("→"))
+		// 既存プロジェクトでも manifest.json がなければ生成
+		manifestPath := filepath.Join(config.GetConfigDir(projectDir), "manifest.json")
+		if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+			fmt.Printf("  manifest.json...")
+			if err := generator.GenerateManifest(projectDir, answers); err != nil {
+				fmt.Println()
+				return fmt.Errorf("manifest生成エラー: %w", err)
+			}
+			fmt.Printf(" %s\n", green("✓"))
+		}
 	} else {
 		fmt.Printf("\n%s プロジェクトを作成中...\n", cyan("→"))
 		fmt.Printf("  テンプレート...")

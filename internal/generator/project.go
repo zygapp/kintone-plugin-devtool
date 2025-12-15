@@ -21,7 +21,7 @@ func GenerateProject(projectDir string, answers *prompt.InitAnswers) error {
 	}
 
 	// manifest.json
-	if err := generateManifest(projectDir, answers); err != nil {
+	if err := GenerateManifest(projectDir, answers); err != nil {
 		return err
 	}
 
@@ -108,7 +108,8 @@ func generatePackageJSON(projectDir string, answers *prompt.InitAnswers) error {
 	return os.WriteFile(filepath.Join(projectDir, "package.json"), data, 0644)
 }
 
-func generateManifest(projectDir string, answers *prompt.InitAnswers) error {
+// GenerateManifest generates .kpdev/manifest.json
+func GenerateManifest(projectDir string, answers *prompt.InitAnswers) error {
 	// プラグイン名（デフォルトはプロジェクト名）
 	nameJa := answers.PluginNameJa
 	if nameJa == "" {

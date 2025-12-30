@@ -107,32 +107,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Prod))
 
 	fmt.Printf("\n出力ファイル:\n")
-	fmt.Printf("  %s\n", ui.InfoStyle.Render(zipPath))
-
-	// dist/plugin/ の内容を表示
-	pluginDir := filepath.Join(cwd, "dist", "plugin")
-	fmt.Printf("\nプラグイン構造:\n")
-	filepath.Walk(pluginDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		relPath, _ := filepath.Rel(pluginDir, path)
-		if relPath == "." {
-			return nil
-		}
-		indent := ""
-		for i := 0; i < len(filepath.SplitList(relPath))-1; i++ {
-			indent += "  "
-		}
-		if info.IsDir() {
-			fmt.Printf("  %s%s/\n", indent, info.Name())
-		} else {
-			fmt.Printf("  %s%s\n", indent, info.Name())
-		}
-		return nil
-	})
-
-	fmt.Println()
+	fmt.Printf("  %s\n\n", ui.InfoStyle.Render(zipPath))
 
 	return nil
 }

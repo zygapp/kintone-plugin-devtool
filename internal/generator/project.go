@@ -53,6 +53,24 @@ func GenerateProject(projectDir string, answers *prompt.InitAnswers) error {
 	return nil
 }
 
+// packageJSON はpackage.jsonの構造を定義する（フィールド順序を保証）
+type packageJSON struct {
+	Name            string            `json:"name"`
+	Version         string            `json:"version"`
+	Private         bool              `json:"private"`
+	Type            string            `json:"type"`
+	Scripts         packageScripts    `json:"scripts"`
+	Dependencies    map[string]string `json:"dependencies"`
+	DevDependencies map[string]string `json:"devDependencies"`
+}
+
+// packageScripts はpackage.jsonのscriptsセクションを定義する
+type packageScripts struct {
+	Dev    string `json:"dev"`
+	Build  string `json:"build"`
+	Deploy string `json:"deploy"`
+}
+
 func generatePackageJSON(projectDir string, answers *prompt.InitAnswers) error {
 	deps := map[string]string{}
 	devDeps := map[string]string{
@@ -86,18 +104,18 @@ func generatePackageJSON(projectDir string, answers *prompt.InitAnswers) error {
 		devDeps["typescript"] = "^5.6.0"
 	}
 
-	pkg := map[string]interface{}{
-		"name":    answers.ProjectName,
-		"version": "1.0.0",
-		"private": true,
-		"type":    "module",
-		"scripts": map[string]string{
-			"dev":    "kpdev dev",
-			"build":  "kpdev build",
-			"deploy": "kpdev deploy",
+	pkg := packageJSON{
+		Name:    answers.ProjectName,
+		Version: "1.0.0",
+		Private: true,
+		Type:    "module",
+		Scripts: packageScripts{
+			Dev:    "kpdev dev",
+			Build:  "kpdev build",
+			Deploy: "kpdev deploy",
 		},
-		"dependencies":    deps,
-		"devDependencies": devDeps,
+		Dependencies:    deps,
+		DevDependencies: devDeps,
 	}
 
 	data, err := json.MarshalIndent(pkg, "", "  ")

@@ -1,9 +1,20 @@
 package prompt
 
 import (
+	"strings"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 )
+
+// CompleteDomain はサブドメインのみの入力を完全なドメインに補完する
+func CompleteDomain(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if !strings.Contains(domain, ".") {
+		return domain + ".cybozu.com"
+	}
+	return domain
+}
 
 type Framework string
 
@@ -104,7 +115,7 @@ func AskDomain(defaultVal string) (string, error) {
 	if err := survey.AskOne(prompt, &answer, survey.WithValidator(survey.Required)); err != nil {
 		return "", err
 	}
-	return answer, nil
+	return CompleteDomain(answer), nil
 }
 
 func AskDescriptionJa(defaultVal string) (string, error) {
@@ -317,6 +328,7 @@ func AskProdEnvironment() (*ProdEnvironment, error) {
 	if err := survey.AskOne(domainPrompt, &env.Domain, survey.WithValidator(survey.Required)); err != nil {
 		return nil, err
 	}
+	env.Domain = CompleteDomain(env.Domain)
 
 	// ユーザー名
 	usernamePrompt := &survey.Input{

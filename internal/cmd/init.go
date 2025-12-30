@@ -256,7 +256,7 @@ func collectAnswers(projectDir string, projectName string) (*prompt.InitAnswers,
 
 	// ドメイン
 	if flagDomain != "" {
-		answers.Domain = flagDomain
+		answers.Domain = prompt.CompleteDomain(flagDomain)
 	} else if meta != nil && meta.Kintone.Domain != "" {
 		answers.Domain = meta.Kintone.Domain
 	} else if cfg, err := config.Load(projectDir); err == nil && cfg.Kintone.Dev.Domain != "" {

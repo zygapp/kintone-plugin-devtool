@@ -16,6 +16,10 @@ import (
 
 var (
 	flagName           string
+	flagNameJa         string
+	flagNameEn         string
+	flagDescriptionJa  string
+	flagDescriptionEn  string
 	flagDomain         string
 	flagFramework      string
 	flagLanguage       string
@@ -40,6 +44,10 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 
 	initCmd.Flags().StringVarP(&flagName, "name", "n", "", "プロジェクト名")
+	initCmd.Flags().StringVar(&flagNameJa, "name-ja", "", "プラグイン名（日本語）")
+	initCmd.Flags().StringVar(&flagNameEn, "name-en", "", "プラグイン名（英語）")
+	initCmd.Flags().StringVar(&flagDescriptionJa, "description-ja", "", "プラグイン説明（日本語）")
+	initCmd.Flags().StringVar(&flagDescriptionEn, "description-en", "", "プラグイン説明（英語）")
 	initCmd.Flags().StringVarP(&flagDomain, "domain", "d", "", "kintone ドメイン")
 	initCmd.Flags().StringVarP(&flagFramework, "framework", "f", "", "フレームワーク (react|vue|svelte|vanilla)")
 	initCmd.Flags().StringVarP(&flagLanguage, "language", "l", "", "言語 (typescript|javascript)")
@@ -238,30 +246,46 @@ func collectAnswers(projectDir string, projectName string) (*prompt.InitAnswers,
 	}
 
 	// プラグイン名（デフォルトはプロジェクト名）
-	pluginNameJa, err := prompt.AskPluginNameJa(answers.ProjectName)
-	if err != nil {
-		return nil, err
+	if flagNameJa != "" {
+		answers.PluginNameJa = flagNameJa
+	} else {
+		pluginNameJa, err := prompt.AskPluginNameJa(answers.ProjectName)
+		if err != nil {
+			return nil, err
+		}
+		answers.PluginNameJa = pluginNameJa
 	}
-	answers.PluginNameJa = pluginNameJa
 
-	pluginNameEn, err := prompt.AskPluginNameEn(answers.ProjectName)
-	if err != nil {
-		return nil, err
+	if flagNameEn != "" {
+		answers.PluginNameEn = flagNameEn
+	} else {
+		pluginNameEn, err := prompt.AskPluginNameEn(answers.ProjectName)
+		if err != nil {
+			return nil, err
+		}
+		answers.PluginNameEn = pluginNameEn
 	}
-	answers.PluginNameEn = pluginNameEn
 
 	// プラグイン説明
-	descJa, err := prompt.AskDescriptionJa("")
-	if err != nil {
-		return nil, err
+	if flagDescriptionJa != "" {
+		answers.DescriptionJa = flagDescriptionJa
+	} else {
+		descJa, err := prompt.AskDescriptionJa("")
+		if err != nil {
+			return nil, err
+		}
+		answers.DescriptionJa = descJa
 	}
-	answers.DescriptionJa = descJa
 
-	descEn, err := prompt.AskDescriptionEn("")
-	if err != nil {
-		return nil, err
+	if flagDescriptionEn != "" {
+		answers.DescriptionEn = flagDescriptionEn
+	} else {
+		descEn, err := prompt.AskDescriptionEn("")
+		if err != nil {
+			return nil, err
+		}
+		answers.DescriptionEn = descEn
 	}
-	answers.DescriptionEn = descEn
 
 	// ドメイン
 	if flagDomain != "" {

@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/fatih/color"
 	"github.com/kintone/kpdev/internal/config"
+	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/kintone"
 	"github.com/kintone/kpdev/internal/plugin"
 	"github.com/kintone/kpdev/internal/prompt"
@@ -237,6 +238,20 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// メタデータとマニフェストを読み込み（プラグインIDとバージョン表示用）
+	meta, err := generator.LoadLoaderMeta(cwd)
+	if err != nil {
+		return fmt.Errorf("loader.meta.json が見つかりません: %w", err)
+	}
+
+	manifest, err := loadBuildManifest(cwd)
+	if err != nil {
+		return fmt.Errorf("manifest.json の読み込みに失敗しました: %w", err)
+	}
+
+	pluginID := meta.PluginIDs.Prod
+	pluginVersion := fmt.Sprintf("%v", manifest["version"])
+
 	fmt.Printf("%s プラグインをデプロイ中...\n\n", cyan("→"))
 
 	// 選択された環境にデプロイ
@@ -259,7 +274,6 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		var result *kintone.PluginImportResult
 		var deployErr error
 
 		err := ui.SpinnerWithResult(fmt.Sprintf("%s にデプロイ中...", prod.Name), func() error {
@@ -274,7 +288,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			}
 
 			// プラグインをインポート
-			result, err = client.ImportPlugin(fileKey)
+			_, err = client.ImportPlugin(fileKey)
 			if err != nil {
 				deployErr = fmt.Errorf("インポートエラー: %w", err)
 				return deployErr
@@ -291,7 +305,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		fmt.Printf("  Plugin ID: %s (v%d)\n", result.ID, result.Version)
+		fmt.Printf("  Plugin ID: %s (v%s)\n", pluginID, pluginVersion)
 		successCount++
 	}
 

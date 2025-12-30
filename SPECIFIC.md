@@ -1,4 +1,4 @@
-# kpdev（kintone plugin developer）仕様書 v0.1
+# kpdev（kintone plugin developer）仕様書 v0.3
 
 ## 1. 目的
 
@@ -9,6 +9,8 @@ kintoneプラグイン開発を Tailwind v4 のようなコマンド中心のDX 
 - `kpdev build` で本番用プラグインZIPを生成
 - `kpdev deploy` で kintone に API 経由デプロイ
 - `kpdev config` で設定を対話形式で変更
+- `kpdev migrate` で既存プロジェクトを最新仕様に更新
+- `kpdev update` で依存パッケージを一括更新
 
 ## 2. 基本思想（重要）
 
@@ -93,6 +95,20 @@ Go本体 + npmラッパー（esbuildの配布モデルを採用）
 
 ※ プラグインはシステム全体にインストールされるため、アプリIDは不要
 
+#### コマンドオプション
+
+```bash
+kpdev init [flags]
+
+Flags:
+  --name-ja string          プラグイン名（日本語）
+  --name-en string          プラグイン名（英語）
+  --description-ja string   説明（日本語）
+  --description-en string   説明（英語）
+```
+
+これらのフラグを指定すると、対話をスキップして直接値を設定できる。
+
 #### 対話スキップ条件
 
 既存ファイルに応じて対話をスキップし、値を自動取得する：
@@ -146,8 +162,19 @@ Go本体 + npmラッパー（esbuildの配布モデルを採用）
 ├ icon.png（56x56）
 ├ package.json
 ├ .gitignore
+├ eslint.config.js      # フレームワーク別ESLint設定
 └ README.md
 ```
+
+#### ESLint設定
+
+init時にフレームワークに応じたESLint設定が自動生成される：
+- **React**: eslint-plugin-react-hooks, eslint-plugin-react-refresh
+- **Vue**: eslint-plugin-vue
+- **Svelte**: eslint-plugin-svelte
+- **Vanilla**: 基本設定のみ
+
+TypeScriptプロジェクトの場合は、typescript-eslint も自動設定される。
 
 #### Vite設定の扱い
 
@@ -201,6 +228,7 @@ Go本体 + npmラッパー（esbuildの配布モデルを採用）
 
 - `--skip-deploy`: ローダープラグインのデプロイをスキップ（2回目以降の起動時など）
 - `--no-browser`: ブラウザを自動で開かない
+- `--force`, `-f`: 確認ダイアログをスキップ（CI/CD向け）
 
 #### 起動時の表示
 
@@ -440,10 +468,33 @@ dev-plugin/
 5. **本番用秘密鍵（private.prod.ppk）で署名**
 6. ZIP生成
 
+### コマンド
+
+```bash
+# 対話形式でモードを選択
+kpdev build
+
+# 本番ビルド（minify + console削除）
+kpdev build --mode prod
+
+# プレビルド（minifyなし + console残す + 名前に[開発]付与）
+kpdev build --mode pre
+```
+
 ### ビルドオプション
 
+- `--mode`: ビルドモード（prod|pre）。未指定時は対話で選択
+  - `prod`: 本番ビルド（minify + console削除）
+  - `pre`: プレビルド（minifyなし + console残す + プラグイン名に[開発]付与）
+- `--skip-version`: バージョン確認をスキップ
 - `--no-minify`: minify 無効（デフォルトは有効）
 - `--remove-console`: console.log/info を削除（デフォルト有効）
+
+### バージョン同期
+
+ビルド時にバージョンを更新すると、以下のファイルが自動的に同期される：
+- `.kpdev/manifest.json` の `version`
+- `package.json` の `version`
 
 ### 出力先
 
@@ -508,15 +559,31 @@ kintone に API 経由でプラグインをインストール
 ### コマンド
 
 ```bash
-# 対話形式でデプロイ先を選択
+# 対話形式でモードとデプロイ先を選択
 kpdev deploy
+
+# 本番ビルドしてデプロイ
+kpdev deploy --mode prod
+
+# プレビルドしてデプロイ
+kpdev deploy --mode pre
 
 # 既存のZIPをデプロイ
 kpdev deploy --file dist/plugin-prod-v1.0.0.zip
 
 # 全環境にデプロイ（対話スキップ）
 kpdev deploy --all
+
+# CI/CD向け（対話スキップ、最新ZIPを全環境にデプロイ）
+kpdev deploy --force
 ```
+
+### オプション
+
+- `--mode`: ビルドモード（prod|pre）。未指定時は対話で選択
+- `--file`: デプロイするZIPファイルのパス（指定時はビルドをスキップ）
+- `--all`: 全環境にデプロイ（対話スキップ）
+- `--force`, `-f`: 確認ダイアログをスキップ（CI/CD向け）
 
 ### 対話フロー
 
@@ -536,6 +603,11 @@ kpdev deploy --all
 2. `POST /k/api/dev/plugin/import.json`（非公式API）
    - Body: `{ "item": fileKey }`
    - Header: `X-Cybozu-Authorization: base64(username:password)`
+   - レスポンス: `{ "success": true, "result": {} }`（Plugin ID/バージョンは含まれない）
+
+※ デプロイ成功時に表示するPlugin IDとバージョンは、APIレスポンスではなくローカルファイルから取得：
+- Plugin ID: `loader.meta.json` の `pluginIds.prod`
+- バージョン: `manifest.json` の `version`
 
 ### 認証
 
@@ -559,6 +631,8 @@ kpdev deploy --all
   開発環境の設定
   本番環境の管理
   ターゲット (desktop/mobile) の設定
+  フレームワークの変更
+  エントリーポイントの設定
   終了
 ```
 
@@ -569,11 +643,13 @@ kpdev deploy --all
    - 開発環境（ドメイン、認証状態）
    - 本番環境一覧
    - ターゲット設定
+   - フレームワーク/言語
 
 2. **プラグイン情報（manifest）の編集**
    - プラグイン名（日本語/英語）
    - 説明（日本語/英語）
    - バージョン
+   - ホームページURL
 
 3. **開発環境の設定**
    - kintoneドメイン
@@ -587,6 +663,79 @@ kpdev deploy --all
 5. **ターゲット（desktop/mobile）の設定**
    - デスクトップ有効/無効
    - モバイル有効/無効
+   - 変更時は manifest.json も自動更新
+
+6. **フレームワークの変更**
+   - React / Vue / Svelte / Vanilla から選択
+   - 選択するとエントリーポイントが自動的に更新される
+   - 現在のフレームワークは選択肢から除外
+
+7. **エントリーポイントの設定**
+   - メインエントリ（src/main/main.*）のパスを変更
+   - コンフィグエントリ（src/config/main.*）のパスを変更
+
+## 11.6 kpdev migrate
+
+### 目的
+
+既存プロジェクトを最新のkpdev仕様に更新する。
+
+### コマンド
+
+```bash
+# 対話形式でマイグレーション
+kpdev migrate
+
+# 確認なしでマイグレーション（CI/CD向け）
+kpdev migrate --force
+```
+
+### 処理内容
+
+1. **Vite設定の更新**
+   - `.kpdev/vite.config.ts` を最新版に置き換え
+   - Vite 7対応（handleHotUpdate → watcher.on('change')）
+
+2. **package.json の依存関係更新**
+   - vite, @vitejs/plugin-react 等を最新バージョンに更新
+   - 不要な依存関係を削除
+
+3. **manifest.json の標準化**
+   - プロパティ順序を標準順序に並び替え
+   - 欠落している必須プロパティを追加
+
+4. **loader.meta.json の更新**
+   - スキーマバージョンを最新に更新
+   - 新しいフィールドを追加
+
+### オプション
+
+- `--force`, `-f`: 確認ダイアログをスキップ
+
+## 11.7 kpdev update
+
+### 目的
+
+プロジェクトの依存パッケージを一括更新する。
+
+### コマンド
+
+```bash
+kpdev update
+```
+
+### 処理内容
+
+1. package.json の依存関係を最新バージョンに更新
+2. パッケージマネージャーを使用してインストール（npm/pnpm/yarn/bun）
+3. 更新されたパッケージの一覧を表示
+
+### 更新対象
+
+- `vite`
+- `@vitejs/plugin-react` / `@vitejs/plugin-vue` / `@sveltejs/vite-plugin-svelte`
+- `typescript`（TypeScriptプロジェクトの場合）
+- その他フレームワーク固有の依存関係
 
 ## 12. 複数本番環境デプロイ
 
@@ -678,9 +827,10 @@ KPDEV_PROD_B_PASSWORD=pass-b
 
 ```json
 {
-  "manifest_version": 1,
   "version": "1.0.0",
+  "manifest_version": 1,
   "type": "APP",
+  "icon": "icon.png",
   "name": {
     "ja": "サンプルプラグイン",
     "en": "Sample Plugin"
@@ -689,7 +839,10 @@ KPDEV_PROD_B_PASSWORD=pass-b
     "ja": "サンプルプラグインです",
     "en": "This is a sample plugin"
   },
-  "icon": "icon.png",
+  "homepage_url": {
+    "ja": "https://example.com/ja",
+    "en": "https://example.com/en"
+  },
   "desktop": {
     "js": ["js/desktop.js"],
     "css": ["css/desktop.css"]
@@ -706,6 +859,25 @@ KPDEV_PROD_B_PASSWORD=pass-b
   }
 }
 ```
+
+### プロパティ順序
+
+manifest.json のプロパティは以下の標準順序で保存される：
+1. version
+2. manifest_version
+3. type
+4. icon
+5. name
+6. description
+7. homepage_url
+8. config
+9. desktop
+10. mobile
+
+### オプションフィールド
+
+- `homepage_url`: プラグインのヘルプページURL（日本語/英語）
+- `config.required_params`: 必須設定パラメータの配列
 
 ### kpdev が自動更新するフィールド
 

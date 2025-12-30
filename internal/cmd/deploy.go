@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/fatih/color"
 	"github.com/kintone/kpdev/internal/config"
-	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/kintone"
 	"github.com/kintone/kpdev/internal/plugin"
 	"github.com/kintone/kpdev/internal/prompt"
@@ -236,13 +235,6 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	if len(selectedIndices) == 0 {
 		fmt.Println("デプロイ先が選択されていません")
 		return nil
-	}
-
-	// メタデータを読み込み（プラグインID表示用）
-	meta, err := generator.LoadLoaderMeta(cwd)
-	if err == nil {
-		fmt.Printf("Plugin ID:\n")
-		fmt.Printf("  %s\n\n", cyan(meta.PluginIDs.Prod))
 	}
 
 	fmt.Printf("%s プラグインをデプロイ中...\n\n", cyan("→"))

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
@@ -72,7 +73,9 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 
 	// プラグインZIPを作成（署名付き）
 	version := getManifestVersion(projectDir)
-	zipPath := filepath.Join(distDir, fmt.Sprintf("plugin-prod-v%s.zip", version))
+	nameEn := getManifestNameEn(projectDir)
+	safeName := sanitizeFilename(nameEn)
+	zipPath := filepath.Join(distDir, fmt.Sprintf("%s-prod-v%s.zip", safeName, version))
 
 	keyPath := generator.GetProdKeyPath(projectDir)
 	privateKey, err := generator.LoadPrivateKey(keyPath)
@@ -300,4 +303,44 @@ func cleanupTempFiles(distDir string) {
 		path := filepath.Join(distDir, file)
 		os.Remove(path) // エラーは無視（存在しない場合がある）
 	}
+}
+
+// getManifestNameEn は manifest.json から英語名を取得する
+func getManifestNameEn(projectDir string) string {
+	manifestPath := filepath.Join(config.GetConfigDir(projectDir), "manifest.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return "plugin"
+	}
+
+	var manifest struct {
+		Name struct {
+			En string `json:"en"`
+		} `json:"name"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return "plugin"
+	}
+
+	if manifest.Name.En == "" {
+		return "plugin"
+	}
+
+	return manifest.Name.En
+}
+
+// sanitizeFilename は英数字以外をアンダースコアに変換する
+func sanitizeFilename(name string) string {
+	// 英数字以外をアンダースコアに置換
+	re := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+	sanitized := re.ReplaceAllString(name, "_")
+
+	// 先頭・末尾のアンダースコアを削除
+	sanitized = regexp.MustCompile(`^_+|_+$`).ReplaceAllString(sanitized, "")
+
+	if sanitized == "" {
+		return "plugin"
+	}
+
+	return sanitized
 }

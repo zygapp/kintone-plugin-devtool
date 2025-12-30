@@ -124,7 +124,7 @@ kpdev build
 | `--remove-console` | console.* を削除（デフォルト有効） |
 
 **出力ファイル:**
-- `dist/plugin-prod-v{version}.zip`
+- `dist/{name.en}-prod-v{version}.zip`（英数字以外はアンダースコアに変換）
 
 ### `kpdev deploy`
 

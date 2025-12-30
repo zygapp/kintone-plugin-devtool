@@ -126,6 +126,38 @@ func generatePackageJSON(projectDir string, answers *prompt.InitAnswers) error {
 	return os.WriteFile(filepath.Join(projectDir, "package.json"), data, 0644)
 }
 
+// manifestJSON はmanifest.jsonの構造を定義する（フィールド順序を保証）
+type manifestJSON struct {
+	Version         string              `json:"version"`
+	ManifestVersion int                 `json:"manifest_version"`
+	Type            string              `json:"type"`
+	Icon            string              `json:"icon"`
+	Name            manifestLocalizable `json:"name"`
+	Description     manifestLocalizable `json:"description"`
+	Config          *manifestConfig     `json:"config,omitempty"`
+	Desktop         *manifestTarget     `json:"desktop,omitempty"`
+	Mobile          *manifestTarget     `json:"mobile,omitempty"`
+}
+
+// manifestLocalizable は多言語対応フィールドを定義する
+type manifestLocalizable struct {
+	Ja string `json:"ja"`
+	En string `json:"en"`
+}
+
+// manifestConfig はconfig画面の設定を定義する
+type manifestConfig struct {
+	HTML string   `json:"html"`
+	JS   []string `json:"js"`
+	CSS  []string `json:"css"`
+}
+
+// manifestTarget はdesktop/mobileの設定を定義する
+type manifestTarget struct {
+	JS  []string `json:"js"`
+	CSS []string `json:"css"`
+}
+
 // GenerateManifest generates .kpdev/manifest.json
 func GenerateManifest(projectDir string, answers *prompt.InitAnswers) error {
 	// プラグイン名（デフォルトはプロジェクト名）
@@ -148,39 +180,38 @@ func GenerateManifest(projectDir string, answers *prompt.InitAnswers) error {
 		descEn = nameEn + " plugin"
 	}
 
-	manifest := map[string]interface{}{
-		"manifest_version": 1,
-		"version":          "1.0.0",
-		"type":             "APP",
-		"name": map[string]string{
-			"ja": nameJa,
-			"en": nameEn,
+	manifest := manifestJSON{
+		Version:         "1.0.0",
+		ManifestVersion: 1,
+		Type:            "APP",
+		Icon:            "icon.png",
+		Name: manifestLocalizable{
+			Ja: nameJa,
+			En: nameEn,
 		},
-		"description": map[string]string{
-			"ja": descJa,
-			"en": descEn,
+		Description: manifestLocalizable{
+			Ja: descJa,
+			En: descEn,
 		},
-		"icon": "icon.png",
+		Config: &manifestConfig{
+			HTML: "html/config.html",
+			JS:   []string{"js/config.js"},
+			CSS:  []string{"css/config.css"},
+		},
 	}
 
 	if answers.TargetDesktop {
-		manifest["desktop"] = map[string]interface{}{
-			"js":  []string{"js/desktop.js"},
-			"css": []string{"css/desktop.css"},
+		manifest.Desktop = &manifestTarget{
+			JS:  []string{"js/desktop.js"},
+			CSS: []string{"css/desktop.css"},
 		}
 	}
 
 	if answers.TargetMobile {
-		manifest["mobile"] = map[string]interface{}{
-			"js":  []string{"js/mobile.js"},
-			"css": []string{"css/mobile.css"},
+		manifest.Mobile = &manifestTarget{
+			JS:  []string{"js/mobile.js"},
+			CSS: []string{"css/mobile.css"},
 		}
-	}
-
-	manifest["config"] = map[string]interface{}{
-		"html": "html/config.html",
-		"js":   []string{"js/config.js"},
-		"css":  []string{"css/config.css"},
 	}
 
 	data, err := json.MarshalIndent(manifest, "", "  ")

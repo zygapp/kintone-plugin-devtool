@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/kintone/kpdev/internal/config"
@@ -234,11 +235,63 @@ func loadManifest(projectDir string) (map[string]interface{}, error) {
 
 func saveManifest(projectDir string, manifest map[string]interface{}) error {
 	manifestPath := filepath.Join(config.GetConfigDir(projectDir), "manifest.json")
-	data, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return err
+
+	// 標準順序でJSONを生成
+	data := orderedManifestJSON(manifest)
+
+	return os.WriteFile(manifestPath, []byte(data), 0644)
+}
+
+// orderedManifestJSON はmanifestを標準順序でJSON文字列に変換する
+func orderedManifestJSON(manifest map[string]interface{}) string {
+	var sb strings.Builder
+	sb.WriteString("{\n")
+
+	// 順序: version, manifest_version, type, icon, name, description, config, desktop, mobile
+	keys := []string{"version", "manifest_version", "type", "icon", "name", "description", "config", "desktop", "mobile"}
+
+	first := true
+	for _, key := range keys {
+		if val, ok := manifest[key]; ok {
+			if !first {
+				sb.WriteString(",\n")
+			}
+			first = false
+			writeJSONField(&sb, key, val, "  ")
+		}
 	}
-	return os.WriteFile(manifestPath, data, 0644)
+
+	// その他のキーを追加
+	for key, val := range manifest {
+		found := false
+		for _, k := range keys {
+			if k == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			if !first {
+				sb.WriteString(",\n")
+			}
+			first = false
+			writeJSONField(&sb, key, val, "  ")
+		}
+	}
+
+	sb.WriteString("\n}")
+	return sb.String()
+}
+
+func writeJSONField(sb *strings.Builder, key string, val interface{}, indent string) {
+	jsonVal, _ := json.MarshalIndent(val, indent, "  ")
+	// インデントを調整
+	jsonStr := string(jsonVal)
+	sb.WriteString(indent)
+	sb.WriteString("\"")
+	sb.WriteString(key)
+	sb.WriteString("\": ")
+	sb.WriteString(jsonStr)
 }
 
 func editManifest(projectDir string) error {

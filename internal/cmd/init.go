@@ -159,6 +159,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 			Desktop: answers.TargetDesktop,
 			Mobile:  answers.TargetMobile,
 		},
+		PackageManager: string(answers.PackageManager),
 	}
 	if err := cfg.Save(projectDir); err != nil {
 		return fmt.Errorf("設定保存エラー: %w", err)

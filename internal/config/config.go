@@ -46,9 +46,10 @@ type TargetsConfig struct {
 }
 
 type Config struct {
-	Kintone KintoneConfig `json:"kintone"`
-	Dev     DevConfig     `json:"dev"`
-	Targets TargetsConfig `json:"targets"`
+	Kintone        KintoneConfig `json:"kintone"`
+	Dev            DevConfig     `json:"dev"`
+	Targets        TargetsConfig `json:"targets"`
+	PackageManager string        `json:"packageManager,omitempty"`
 }
 
 func Load(projectDir string) (*Config, error) {
@@ -83,4 +84,33 @@ func (c *Config) Save(projectDir string) error {
 
 func GetConfigDir(projectDir string) string {
 	return filepath.Join(projectDir, ConfigDir)
+}
+
+// DetectPackageManager はロックファイルからパッケージマネージャーを検出する
+func DetectPackageManager(projectDir string) string {
+	// pnpm
+	if _, err := os.Stat(filepath.Join(projectDir, "pnpm-lock.yaml")); err == nil {
+		return "pnpm"
+	}
+	// yarn
+	if _, err := os.Stat(filepath.Join(projectDir, "yarn.lock")); err == nil {
+		return "yarn"
+	}
+	// bun
+	if _, err := os.Stat(filepath.Join(projectDir, "bun.lockb")); err == nil {
+		return "bun"
+	}
+	// npm (デフォルト)
+	return "npm"
+}
+
+// GetPackageManager は設定からパッケージマネージャーを取得する（ハイブリッド方式）
+// 優先順位: config.json > ロックファイル検出 > デフォルト(npm)
+func (c *Config) GetPackageManager(projectDir string) string {
+	// config.json に設定があればそれを使用
+	if c.PackageManager != "" {
+		return c.PackageManager
+	}
+	// ロックファイルから検出
+	return DetectPackageManager(projectDir)
 }

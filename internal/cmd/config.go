@@ -6,8 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/fatih/color"
+	"github.com/charmbracelet/huh"
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/prompt"
@@ -37,13 +36,11 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("設定ファイルが見つかりません。先に kpdev init を実行してください: %w", err)
 	}
 
-	cyan := color.New(color.FgCyan).SprintFunc()
-
 	for {
 		// 画面をクリア
 		fmt.Print("\033[H\033[2J")
 
-		fmt.Printf("%s 設定メニュー\n\n", cyan("⚙"))
+		fmt.Printf("%s 設定メニュー\n\n", ui.InfoStyle.Render("⚙"))
 
 		action, err := askConfigAction()
 		if err != nil {
@@ -100,58 +97,51 @@ func runConfig(cmd *cobra.Command, args []string) error {
 }
 
 func askConfigAction() (string, error) {
-	options := []string{
-		"現在の設定を表示",
-		"プラグイン情報 (manifest) の編集",
-		"開発環境の設定",
-		"本番環境の管理",
-		"ターゲット (desktop/mobile) の設定",
-		"フレームワークの切り替え",
-		"エントリーポイントの設定",
-		"終了",
+	type actionChoice struct {
+		label  string
+		action string
+	}
+
+	choices := []actionChoice{
+		{"現在の設定を表示", "view"},
+		{"プラグイン情報 (manifest) の編集", "manifest"},
+		{"開発環境の設定", "dev"},
+		{"本番環境の管理", "prod"},
+		{"ターゲット (desktop/mobile) の設定", "targets"},
+		{"フレームワークの切り替え", "framework"},
+		{"エントリーポイントの設定", "entry"},
+		{"終了", "exit"},
+	}
+
+	options := make([]huh.Option[string], len(choices))
+	for i, c := range choices {
+		options[i] = huh.NewOption(c.label, c.action)
 	}
 
 	var answer string
-	prompt := &survey.Select{
-		Message: "操作を選択してください:",
-		Options: options,
-	}
-	if err := survey.AskOne(prompt, &answer); err != nil {
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("操作を選択してください").
+				Options(options...).
+				Value(&answer),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
 		return "", err
 	}
 
-	switch answer {
-	case options[0]:
-		return "view", nil
-	case options[1]:
-		return "manifest", nil
-	case options[2]:
-		return "dev", nil
-	case options[3]:
-		return "prod", nil
-	case options[4]:
-		return "targets", nil
-	case options[5]:
-		return "framework", nil
-	case options[6]:
-		return "entry", nil
-	default:
-		return "exit", nil
-	}
+	return answer, nil
 }
 
 func showCurrentConfig(cfg *config.Config, projectDir string) {
-	cyan := color.New(color.FgCyan).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-
-	fmt.Printf("\n%s 現在の設定\n\n", cyan("📋"))
+	fmt.Printf("\n%s 現在の設定\n\n", ui.InfoStyle.Render("📋"))
 
 	// マニフェスト情報
-	fmt.Printf("%s\n", cyan("プラグイン情報:"))
+	fmt.Printf("%s\n", ui.InfoStyle.Render("プラグイン情報:"))
 	manifest, err := loadManifest(projectDir)
 	if err != nil {
-		fmt.Printf("  %s\n", yellow("読み込みエラー"))
+		fmt.Printf("  %s\n", ui.WarnStyle.Render("読み込みエラー"))
 	} else {
 		if name, ok := manifest["name"].(map[string]interface{}); ok {
 			fmt.Printf("  名前: %v / %v\n", name["ja"], name["en"])
@@ -163,19 +153,19 @@ func showCurrentConfig(cfg *config.Config, projectDir string) {
 	}
 
 	// 開発環境
-	fmt.Printf("\n%s\n", cyan("開発環境:"))
+	fmt.Printf("\n%s\n", ui.InfoStyle.Render("開発環境:"))
 	fmt.Printf("  ドメイン: %s\n", cfg.Kintone.Dev.Domain)
 	if cfg.Kintone.Dev.Auth.Username != "" {
 		fmt.Printf("  ユーザー: %s\n", cfg.Kintone.Dev.Auth.Username)
 		fmt.Printf("  パスワード: %s\n", "********")
 	} else {
-		fmt.Printf("  認証: %s\n", yellow("未設定"))
+		fmt.Printf("  認証: %s\n", ui.WarnStyle.Render("未設定"))
 	}
 
 	// 本番環境
-	fmt.Printf("\n%s\n", cyan("本番環境:"))
+	fmt.Printf("\n%s\n", ui.InfoStyle.Render("本番環境:"))
 	if len(cfg.Kintone.Prod) == 0 {
-		fmt.Printf("  %s\n", yellow("未設定"))
+		fmt.Printf("  %s\n", ui.WarnStyle.Render("未設定"))
 	} else {
 		for i, prod := range cfg.Kintone.Prod {
 			fmt.Printf("  [%d] %s (%s)\n", i+1, prod.Name, prod.Domain)
@@ -186,14 +176,14 @@ func showCurrentConfig(cfg *config.Config, projectDir string) {
 	}
 
 	// ターゲット
-	fmt.Printf("\n%s\n", cyan("ターゲット:"))
+	fmt.Printf("\n%s\n", ui.InfoStyle.Render("ターゲット:"))
 	if cfg.Targets.Desktop {
-		fmt.Printf("  %s デスクトップ\n", green("✓"))
+		fmt.Printf("  %s デスクトップ\n", ui.SuccessStyle.Render(ui.IconSuccess))
 	} else {
 		fmt.Printf("  ✗ デスクトップ\n")
 	}
 	if cfg.Targets.Mobile {
-		fmt.Printf("  %s モバイル\n", green("✓"))
+		fmt.Printf("  %s モバイル\n", ui.SuccessStyle.Render(ui.IconSuccess))
 	} else {
 		fmt.Printf("  ✗ モバイル\n")
 	}
@@ -226,10 +216,7 @@ func saveManifest(projectDir string, manifest map[string]interface{}) error {
 }
 
 func editManifest(projectDir string) error {
-	cyan := color.New(color.FgCyan).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
-
-	fmt.Printf("\n%s プラグイン情報の編集\n\n", cyan("🔧"))
+	fmt.Printf("\n%s プラグイン情報の編集\n\n", ui.InfoStyle.Render("🔧"))
 
 	manifest, err := loadManifest(projectDir)
 	if err != nil {
@@ -238,57 +225,37 @@ func editManifest(projectDir string) error {
 
 	// 名前 (日本語)
 	name := manifest["name"].(map[string]interface{})
-	var nameJa string
-	nameJaPrompt := &survey.Input{
-		Message: "プラグイン名 (日本語):",
-		Default: fmt.Sprintf("%v", name["ja"]),
-	}
-	if err := survey.AskOne(nameJaPrompt, &nameJa, survey.WithValidator(survey.Required)); err != nil {
+	nameJa, err := askInput("プラグイン名 (日本語)", fmt.Sprintf("%v", name["ja"]), true)
+	if err != nil {
 		return err
 	}
 	name["ja"] = nameJa
 
 	// 名前 (英語)
-	var nameEn string
-	nameEnPrompt := &survey.Input{
-		Message: "プラグイン名 (English):",
-		Default: fmt.Sprintf("%v", name["en"]),
-	}
-	if err := survey.AskOne(nameEnPrompt, &nameEn, survey.WithValidator(survey.Required)); err != nil {
+	nameEn, err := askInput("プラグイン名 (English)", fmt.Sprintf("%v", name["en"]), true)
+	if err != nil {
 		return err
 	}
 	name["en"] = nameEn
 
 	// 説明 (日本語)
 	desc := manifest["description"].(map[string]interface{})
-	var descJa string
-	descJaPrompt := &survey.Input{
-		Message: "説明 (日本語):",
-		Default: fmt.Sprintf("%v", desc["ja"]),
-	}
-	if err := survey.AskOne(descJaPrompt, &descJa); err != nil {
+	descJa, err := askInput("説明 (日本語)", fmt.Sprintf("%v", desc["ja"]), false)
+	if err != nil {
 		return err
 	}
 	desc["ja"] = descJa
 
 	// 説明 (英語)
-	var descEn string
-	descEnPrompt := &survey.Input{
-		Message: "説明 (English):",
-		Default: fmt.Sprintf("%v", desc["en"]),
-	}
-	if err := survey.AskOne(descEnPrompt, &descEn); err != nil {
+	descEn, err := askInput("説明 (English)", fmt.Sprintf("%v", desc["en"]), false)
+	if err != nil {
 		return err
 	}
 	desc["en"] = descEn
 
 	// バージョン
-	var version string
-	versionPrompt := &survey.Input{
-		Message: "バージョン:",
-		Default: fmt.Sprintf("%v", manifest["version"]),
-	}
-	if err := survey.AskOne(versionPrompt, &version, survey.WithValidator(survey.Required)); err != nil {
+	version, err := askInput("バージョン", fmt.Sprintf("%v", manifest["version"]), true)
+	if err != nil {
 		return err
 	}
 	manifest["version"] = version
@@ -298,15 +265,40 @@ func editManifest(projectDir string) error {
 		return err
 	}
 
-	fmt.Printf("\n%s プラグイン情報を更新しました\n", green("✓"))
+	ui.Success("プラグイン情報を更新しました")
 	return nil
 }
 
-func editDevConfig(cfg *config.Config) error {
-	cyan := color.New(color.FgCyan).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
+func askInput(title, defaultVal string, required bool) (string, error) {
+	var answer string
+	input := huh.NewInput().
+		Title(title).
+		Value(&answer).
+		Placeholder(defaultVal)
 
-	fmt.Printf("\n%s 開発環境の設定\n\n", cyan("🔧"))
+	if required {
+		input = input.Validate(func(s string) error {
+			if s == "" {
+				return fmt.Errorf("入力必須です")
+			}
+			return nil
+		})
+	}
+
+	err := huh.NewForm(
+		huh.NewGroup(input),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
+		return "", err
+	}
+	if answer == "" {
+		answer = defaultVal
+	}
+	return answer, nil
+}
+
+func editDevConfig(cfg *config.Config) error {
+	fmt.Printf("\n%s 開発環境の設定\n\n", ui.InfoStyle.Render("🔧"))
 
 	// ドメイン
 	domain, err := prompt.AskDomain(cfg.Kintone.Dev.Domain)
@@ -316,12 +308,8 @@ func editDevConfig(cfg *config.Config) error {
 	cfg.Kintone.Dev.Domain = domain
 
 	// 認証情報を更新するか確認
-	var updateAuth bool
-	authPrompt := &survey.Confirm{
-		Message: "認証情報を更新しますか?",
-		Default: false,
-	}
-	if err := survey.AskOne(authPrompt, &updateAuth); err != nil {
+	updateAuth, err := prompt.AskConfirm("認証情報を更新しますか?", false)
+	if err != nil {
 		return err
 	}
 
@@ -338,37 +326,49 @@ func editDevConfig(cfg *config.Config) error {
 		cfg.Kintone.Dev.Auth.Password = password
 	}
 
-	fmt.Printf("\n%s 開発環境の設定を更新しました\n", green("✓"))
+	ui.Success("開発環境の設定を更新しました")
 	return nil
 }
 
 func manageProdConfig(cfg *config.Config) error {
-	cyan := color.New(color.FgCyan).SprintFunc()
+	fmt.Printf("\n%s 本番環境の管理\n\n", ui.InfoStyle.Render("🔧"))
 
-	fmt.Printf("\n%s 本番環境の管理\n\n", cyan("🔧"))
+	type actionChoice struct {
+		label  string
+		action string
+	}
 
-	options := []string{
-		"環境を追加",
-		"環境を編集",
-		"環境を削除",
-		"戻る",
+	choices := []actionChoice{
+		{"環境を追加", "add"},
+		{"環境を編集", "edit"},
+		{"環境を削除", "delete"},
+		{"戻る", "back"},
+	}
+
+	options := make([]huh.Option[string], len(choices))
+	for i, c := range choices {
+		options[i] = huh.NewOption(c.label, c.action)
 	}
 
 	var answer string
-	prompt := &survey.Select{
-		Message: "操作を選択してください:",
-		Options: options,
-	}
-	if err := survey.AskOne(prompt, &answer); err != nil {
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("操作を選択してください").
+				Options(options...).
+				Value(&answer),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
 		return err
 	}
 
 	switch answer {
-	case options[0]:
+	case "add":
 		return addProdEnv(cfg)
-	case options[1]:
+	case "edit":
 		return editProdEnv(cfg)
-	case options[2]:
+	case "delete":
 		return deleteProdEnv(cfg)
 	}
 
@@ -376,8 +376,6 @@ func manageProdConfig(cfg *config.Config) error {
 }
 
 func addProdEnv(cfg *config.Config) error {
-	green := color.New(color.FgGreen).SprintFunc()
-
 	prodEnv, err := prompt.AskProdEnvironment()
 	if err != nil {
 		return err
@@ -392,7 +390,7 @@ func addProdEnv(cfg *config.Config) error {
 		},
 	})
 
-	fmt.Printf("\n%s 本番環境を追加しました: %s\n", green("✓"), prodEnv.Name)
+	ui.Success(fmt.Sprintf("本番環境を追加しました: %s", prodEnv.Name))
 	return nil
 }
 
@@ -402,41 +400,30 @@ func editProdEnv(cfg *config.Config) error {
 		return nil
 	}
 
-	green := color.New(color.FgGreen).SprintFunc()
-
 	// 環境を選択
-	options := make([]string, len(cfg.Kintone.Prod))
+	options := make([]huh.Option[int], len(cfg.Kintone.Prod))
 	for i, prod := range cfg.Kintone.Prod {
-		options[i] = prod.Name + " (" + prod.Domain + ")"
+		options[i] = huh.NewOption(prod.Name+" ("+prod.Domain+")", i)
 	}
 
-	var selected string
-	selectPrompt := &survey.Select{
-		Message: "編集する環境を選択:",
-		Options: options,
-	}
-	if err := survey.AskOne(selectPrompt, &selected); err != nil {
-		return err
-	}
-
-	// インデックスを特定
 	var idx int
-	for i, opt := range options {
-		if opt == selected {
-			idx = i
-			break
-		}
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[int]().
+				Title("編集する環境を選択").
+				Options(options...).
+				Value(&idx),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
+		return err
 	}
 
 	prod := &cfg.Kintone.Prod[idx]
 
 	// 名前
-	var name string
-	namePrompt := &survey.Input{
-		Message: "環境名:",
-		Default: prod.Name,
-	}
-	if err := survey.AskOne(namePrompt, &name, survey.WithValidator(survey.Required)); err != nil {
+	name, err := askInput("環境名", prod.Name, true)
+	if err != nil {
 		return err
 	}
 	prod.Name = name
@@ -449,12 +436,8 @@ func editProdEnv(cfg *config.Config) error {
 	prod.Domain = domain
 
 	// 認証情報を更新するか確認
-	var updateAuth bool
-	authPrompt := &survey.Confirm{
-		Message: "認証情報を更新しますか?",
-		Default: false,
-	}
-	if err := survey.AskOne(authPrompt, &updateAuth); err != nil {
+	updateAuth, err := prompt.AskConfirm("認証情報を更新しますか?", false)
+	if err != nil {
 		return err
 	}
 
@@ -471,7 +454,7 @@ func editProdEnv(cfg *config.Config) error {
 		prod.Auth.Password = password
 	}
 
-	fmt.Printf("\n%s 本番環境を更新しました: %s\n", green("✓"), prod.Name)
+	ui.Success(fmt.Sprintf("本番環境を更新しました: %s", prod.Name))
 	return nil
 }
 
@@ -481,39 +464,28 @@ func deleteProdEnv(cfg *config.Config) error {
 		return nil
 	}
 
-	red := color.New(color.FgRed).SprintFunc()
-
 	// 環境を選択
-	options := make([]string, len(cfg.Kintone.Prod))
+	options := make([]huh.Option[int], len(cfg.Kintone.Prod))
 	for i, prod := range cfg.Kintone.Prod {
-		options[i] = prod.Name + " (" + prod.Domain + ")"
+		options[i] = huh.NewOption(prod.Name+" ("+prod.Domain+")", i)
 	}
 
-	var selected string
-	selectPrompt := &survey.Select{
-		Message: "削除する環境を選択:",
-		Options: options,
-	}
-	if err := survey.AskOne(selectPrompt, &selected); err != nil {
+	var idx int
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[int]().
+				Title("削除する環境を選択").
+				Options(options...).
+				Value(&idx),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
 		return err
 	}
 
-	// インデックスを特定
-	var idx int
-	for i, opt := range options {
-		if opt == selected {
-			idx = i
-			break
-		}
-	}
-
 	// 確認
-	var confirm bool
-	confirmPrompt := &survey.Confirm{
-		Message: fmt.Sprintf("本当に「%s」を削除しますか?", cfg.Kintone.Prod[idx].Name),
-		Default: false,
-	}
-	if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
+	confirm, err := prompt.AskConfirm(fmt.Sprintf("本当に「%s」を削除しますか?", cfg.Kintone.Prod[idx].Name), false)
+	if err != nil {
 		return err
 	}
 
@@ -525,13 +497,11 @@ func deleteProdEnv(cfg *config.Config) error {
 	name := cfg.Kintone.Prod[idx].Name
 	cfg.Kintone.Prod = append(cfg.Kintone.Prod[:idx], cfg.Kintone.Prod[idx+1:]...)
 
-	fmt.Printf("\n%s 本番環境を削除しました: %s\n", red("✗"), name)
+	ui.Error(fmt.Sprintf("本番環境を削除しました: %s", name))
 	return nil
 }
 
 func editTargets(cfg *config.Config) error {
-	green := color.New(color.FgGreen).SprintFunc()
-
 	fmt.Println()
 
 	desktop, mobile, err := prompt.AskTargets(cfg.Targets.Desktop, cfg.Targets.Mobile)
@@ -542,19 +512,16 @@ func editTargets(cfg *config.Config) error {
 	cfg.Targets.Desktop = desktop
 	cfg.Targets.Mobile = mobile
 
-	fmt.Printf("\n%s ターゲットを更新しました\n", green("✓"))
+	ui.Success("ターゲットを更新しました")
 	return nil
 }
 
 func switchFramework(projectDir string, cfg *config.Config) error {
-	cyan := color.New(color.FgCyan).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
-
-	fmt.Printf("\n%s フレームワークの切り替え\n\n", cyan("🔧"))
+	fmt.Printf("\n%s フレームワークの切り替え\n\n", ui.InfoStyle.Render("🔧"))
 
 	// 現在のフレームワークを検出
 	currentFramework := detectCurrentFramework(projectDir)
-	fmt.Printf("現在のフレームワーク: %s\n\n", cyan(string(currentFramework)))
+	fmt.Printf("現在のフレームワーク: %s\n\n", ui.InfoStyle.Render(string(currentFramework)))
 
 	// 新しいフレームワークを選択
 	newFramework, err := prompt.AskFramework()
@@ -563,7 +530,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	}
 
 	if newFramework == currentFramework {
-		fmt.Printf("\n%s フレームワークは変更されていません\n", cyan("→"))
+		ui.Info("フレームワークは変更されていません")
 		return nil
 	}
 
@@ -577,12 +544,8 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	pm := cfg.GetPackageManager(projectDir)
 
 	// 確認
-	var confirm bool
-	confirmPrompt := &survey.Confirm{
-		Message: fmt.Sprintf("%s から %s に切り替えますか? (パッケージの再インストールが必要です)", currentFramework, newFramework),
-		Default: true,
-	}
-	if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
+	confirm, err := prompt.AskConfirm(fmt.Sprintf("%s から %s に切り替えますか? (パッケージの再インストールが必要です)", currentFramework, newFramework), true)
+	if err != nil {
 		return err
 	}
 
@@ -591,7 +554,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 		return nil
 	}
 
-	fmt.Printf("\n%s フレームワークを切り替え中...\n", cyan("→"))
+	ui.Info("フレームワークを切り替え中...")
 
 	// 古いフレームワークのパッケージをアンインストール
 	oldPkgs := getFrameworkPackages(currentFramework)
@@ -635,7 +598,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	if err := generator.GenerateViteConfig(projectDir, newFramework, newLanguage); err != nil {
 		return fmt.Errorf("Vite設定生成エラー: %w", err)
 	}
-	fmt.Printf(" %s\n", green("✓"))
+	fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 	// eslint.config.js を再生成（既存ファイルを削除してから）
 	fmt.Printf("  ESLint設定を再生成中...")
@@ -644,14 +607,15 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	if err := generator.GenerateESLintConfig(projectDir, newFramework, newLanguage); err != nil {
 		return fmt.Errorf("ESLint設定生成エラー: %w", err)
 	}
-	fmt.Printf(" %s\n", green("✓"))
+	fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 	// config.json のエントリーパスを更新
 	cfg.Dev.Entry.Main = generator.GetEntryPath(newFramework, newLanguage, "main")
 	cfg.Dev.Entry.Config = generator.GetEntryPath(newFramework, newLanguage, "config")
 
-	fmt.Printf("\n%s フレームワークを %s に切り替えました\n", green("✓"), newFramework)
-	fmt.Printf("\n%s ソースファイルは手動で更新してください\n", cyan("→"))
+	fmt.Println()
+	ui.Success(fmt.Sprintf("フレームワークを %s に切り替えました", newFramework))
+	ui.Info("ソースファイルは手動で更新してください")
 
 	return nil
 }
@@ -690,38 +654,27 @@ func getFrameworkPackages(framework prompt.Framework) []string {
 }
 
 func editEntryPoints(projectDir string, cfg *config.Config) error {
-	cyan := color.New(color.FgCyan).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
-
-	fmt.Printf("\n%s エントリーポイントの設定\n\n", cyan("🔧"))
+	fmt.Printf("\n%s エントリーポイントの設定\n\n", ui.InfoStyle.Render("🔧"))
 
 	fmt.Printf("現在のエントリーポイント:\n")
-	fmt.Printf("  main:   %s\n", cyan(cfg.Dev.Entry.Main))
-	fmt.Printf("  config: %s\n\n", cyan(cfg.Dev.Entry.Config))
+	fmt.Printf("  main:   %s\n", ui.InfoStyle.Render(cfg.Dev.Entry.Main))
+	fmt.Printf("  config: %s\n\n", ui.InfoStyle.Render(cfg.Dev.Entry.Config))
 
 	// mainエントリーポイント
-	var mainEntry string
-	mainPrompt := &survey.Input{
-		Message: "main エントリーポイント:",
-		Default: cfg.Dev.Entry.Main,
-	}
-	if err := survey.AskOne(mainPrompt, &mainEntry, survey.WithValidator(survey.Required)); err != nil {
+	mainEntry, err := askInput("main エントリーポイント", cfg.Dev.Entry.Main, true)
+	if err != nil {
 		return err
 	}
 
 	// configエントリーポイント
-	var configEntry string
-	configPrompt := &survey.Input{
-		Message: "config エントリーポイント:",
-		Default: cfg.Dev.Entry.Config,
-	}
-	if err := survey.AskOne(configPrompt, &configEntry, survey.WithValidator(survey.Required)); err != nil {
+	configEntry, err := askInput("config エントリーポイント", cfg.Dev.Entry.Config, true)
+	if err != nil {
 		return err
 	}
 
 	cfg.Dev.Entry.Main = mainEntry
 	cfg.Dev.Entry.Config = configEntry
 
-	fmt.Printf("\n%s エントリーポイントを更新しました\n", green("✓"))
+	ui.Success("エントリーポイントを更新しました")
 	return nil
 }

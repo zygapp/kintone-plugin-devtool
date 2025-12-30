@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/fatih/color"
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/prompt"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -37,17 +36,14 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cyan := color.New(color.FgCyan).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-
 	// 設定を読み込み
 	cfg, err := config.Load(cwd)
 	if err != nil {
 		return fmt.Errorf("設定ファイルが見つかりません。先に kpdev init を実行してください: %w", err)
 	}
 
-	fmt.Printf("%s プロジェクトの更新チェック\n\n", cyan("→"))
+	ui.Info("プロジェクトの更新チェック")
+	fmt.Println()
 
 	// 更新項目を検出
 	var updates []string
@@ -84,7 +80,7 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(updates) == 0 {
-		fmt.Printf("%s プロジェクトは最新の状態です\n", green("✓"))
+		ui.Success("プロジェクトは最新の状態です")
 		return nil
 	}
 
@@ -97,12 +93,8 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 
 	// 確認
 	if !migrateForce {
-		var confirm bool
-		confirmPrompt := &survey.Confirm{
-			Message: "更新を実行しますか?（バックアップが作成されます）",
-			Default: true,
-		}
-		if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
+		confirm, err := prompt.AskConfirm("更新を実行しますか?（バックアップが作成されます）", true)
+		if err != nil {
 			return err
 		}
 
@@ -114,13 +106,16 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 
 	// バックアップを作成
 	backupDir := filepath.Join(cwd, ".kpdev-backup-"+time.Now().Format("20060102-150405"))
-	fmt.Printf("\n%s バックアップを作成中...\n", cyan("→"))
+	fmt.Println()
+	ui.Info("バックアップを作成中...")
 	if err := createBackup(cwd, backupDir); err != nil {
 		return fmt.Errorf("バックアップ作成エラー: %w", err)
 	}
-	fmt.Printf("  %s %s\n", green("✓"), backupDir)
+	fmt.Printf("  %s %s\n", ui.SuccessStyle.Render(ui.IconSuccess), backupDir)
 
-	fmt.Printf("\n%s 更新を実行中...\n\n", cyan("→"))
+	fmt.Println()
+	ui.Info("更新を実行中...")
+	fmt.Println()
 
 	// フレームワークと言語を検出
 	framework := detectCurrentFramework(cwd)
@@ -131,20 +126,20 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  config.json を更新中...")
 		cfg.PackageManager = config.DetectPackageManager(cwd)
 		if err := cfg.Save(cwd); err != nil {
-			fmt.Printf(" %s\n", yellow("✗"))
+			fmt.Printf(" %s\n", ui.WarnStyle.Render(ui.IconError))
 			return fmt.Errorf("config.json 更新エラー: %w", err)
 		}
-		fmt.Printf(" %s\n", green("✓"))
+		fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 	}
 
 	// 2. ESLint設定の生成
 	if _, err := os.Stat(eslintPath); os.IsNotExist(err) {
 		fmt.Printf("  eslint.config.js を生成中...")
 		if err := generator.GenerateESLintConfig(cwd, framework, language); err != nil {
-			fmt.Printf(" %s\n", yellow("✗"))
+			fmt.Printf(" %s\n", ui.WarnStyle.Render(ui.IconError))
 			return fmt.Errorf("ESLint設定生成エラー: %w", err)
 		}
-		fmt.Printf(" %s\n", green("✓"))
+		fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 	}
 
 	// 3. vite.config.ts の更新
@@ -153,10 +148,10 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		if containsHelper(string(data), "handleHotUpdate") {
 			fmt.Printf("  vite.config.ts を更新中...")
 			if err := generator.GenerateViteConfig(cwd, framework, language); err != nil {
-				fmt.Printf(" %s\n", yellow("✗"))
+				fmt.Printf(" %s\n", ui.WarnStyle.Render(ui.IconError))
 				return fmt.Errorf("Vite設定更新エラー: %w", err)
 			}
-			fmt.Printf(" %s\n", green("✓"))
+			fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 		}
 	}
 
@@ -164,14 +159,16 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(manifestPath); err == nil {
 		fmt.Printf("  manifest.json を標準化中...")
 		if err := standardizeManifest(manifestPath); err != nil {
-			fmt.Printf(" %s\n", yellow("✗"))
+			fmt.Printf(" %s\n", ui.WarnStyle.Render(ui.IconError))
 			return fmt.Errorf("manifest.json 標準化エラー: %w", err)
 		}
-		fmt.Printf(" %s\n", green("✓"))
+		fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 	}
 
-	fmt.Printf("\n%s プロジェクトを更新しました\n", green("✓"))
-	fmt.Printf("\n%s バックアップは以下にあります:\n", cyan("→"))
+	fmt.Println()
+	ui.Success("プロジェクトを更新しました")
+	fmt.Println()
+	ui.Info("バックアップは以下にあります:")
 	fmt.Printf("  %s\n", backupDir)
 
 	return nil

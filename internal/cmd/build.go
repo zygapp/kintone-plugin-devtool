@@ -8,11 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/fatih/color"
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/plugin"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -42,9 +43,6 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	green := color.New(color.FgGreen).SprintFunc()
-	cyan := color.New(color.FgCyan).SprintFunc()
 
 	// メタデータを読み込み
 	meta, err := generator.LoadLoaderMeta(cwd)
@@ -77,11 +75,13 @@ func runBuild(cmd *cobra.Command, args []string) error {
 			if err := updatePackageJSONVersion(cwd, newVersion); err != nil {
 				return fmt.Errorf("package.json の更新に失敗しました: %w", err)
 			}
-			fmt.Printf("%s バージョンを更新: %s → %s\n\n", green("✓"), currentVersion, newVersion)
+			ui.Success(fmt.Sprintf("バージョンを更新: %s → %s", currentVersion, newVersion))
+			fmt.Println()
 		}
 	}
 
-	fmt.Printf("%s ビルドを開始...\n\n", cyan("→"))
+	ui.Info("ビルドを開始...")
+	fmt.Println()
 
 	fmt.Printf("○ バンドル中...")
 
@@ -96,16 +96,17 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf(" %s\n", green("✓"))
+	fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 	// 結果を表示
-	fmt.Printf("\n%s ビルド完了!\n", green("✓"))
+	fmt.Println()
+	ui.Success("ビルド完了!")
 
 	fmt.Printf("\nPlugin ID:\n")
-	fmt.Printf("  %s\n", cyan(meta.PluginIDs.Prod))
+	fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Prod))
 
 	fmt.Printf("\n出力ファイル:\n")
-	fmt.Printf("  %s\n", cyan(zipPath))
+	fmt.Printf("  %s\n", ui.InfoStyle.Render(zipPath))
 
 	// dist/plugin/ の内容を表示
 	pluginDir := filepath.Join(cwd, "dist", "plugin")
@@ -187,7 +188,7 @@ func updatePackageJSONVersion(projectDir string, newVersion string) error {
 }
 
 func askVersion(currentVersion string) (string, error) {
-	cyan := color.New(color.FgCyan).SprintFunc()
+	cyanStyle := lipgloss.NewStyle().Foreground(ui.ColorCyan)
 
 	// バージョンをパース
 	parts := strings.Split(currentVersion, ".")
@@ -207,45 +208,63 @@ func askVersion(currentVersion string) (string, error) {
 	minorVersion := fmt.Sprintf("%d.%d.%d", major, minor+1, 0)
 	majorVersion := fmt.Sprintf("%d.%d.%d", major+1, 0, 0)
 
-	options := []string{
-		fmt.Sprintf("現在のまま (%s)", currentVersion),
-		fmt.Sprintf("パッチ更新 (%s)", patchVersion),
-		fmt.Sprintf("マイナー更新 (%s)", minorVersion),
-		fmt.Sprintf("メジャー更新 (%s)", majorVersion),
-		"カスタム入力",
+	fmt.Printf("現在のバージョン: %s\n\n", cyanStyle.Render(currentVersion))
+
+	type versionChoice struct {
+		label   string
+		version string
 	}
 
-	fmt.Printf("現在のバージョン: %s\n\n", cyan(currentVersion))
+	choices := []versionChoice{
+		{fmt.Sprintf("現在のまま (%s)", currentVersion), currentVersion},
+		{fmt.Sprintf("パッチ更新 (%s)", patchVersion), patchVersion},
+		{fmt.Sprintf("マイナー更新 (%s)", minorVersion), minorVersion},
+		{fmt.Sprintf("メジャー更新 (%s)", majorVersion), majorVersion},
+		{"カスタム入力", "_custom_"},
+	}
+
+	options := make([]huh.Option[string], len(choices))
+	for i, c := range choices {
+		options[i] = huh.NewOption(c.label, c.version)
+	}
 
 	var answer string
-	prompt := &survey.Select{
-		Message: "バージョンを選択:",
-		Options: options,
-		Default: options[0],
-	}
-	if err := survey.AskOne(prompt, &answer); err != nil {
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("バージョンを選択").
+				Options(options...).
+				Value(&answer),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
 		return "", err
 	}
 
-	switch answer {
-	case options[0]:
-		return currentVersion, nil
-	case options[1]:
-		return patchVersion, nil
-	case options[2]:
-		return minorVersion, nil
-	case options[3]:
-		return majorVersion, nil
-	default:
-		// カスタム入力
+	if answer == "_custom_" {
 		var customVersion string
-		inputPrompt := &survey.Input{
-			Message: "バージョンを入力:",
-			Default: currentVersion,
-		}
-		if err := survey.AskOne(inputPrompt, &customVersion, survey.WithValidator(survey.Required)); err != nil {
+		err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("バージョンを入力").
+					Value(&customVersion).
+					Placeholder(currentVersion).
+					Validate(func(s string) error {
+						if s == "" {
+							return fmt.Errorf("入力必須です")
+						}
+						return nil
+					}),
+			),
+		).WithTheme(huh.ThemeCatppuccin()).Run()
+		if err != nil {
 			return "", err
+		}
+		if customVersion == "" {
+			customVersion = currentVersion
 		}
 		return customVersion, nil
 	}
+
+	return answer, nil
 }

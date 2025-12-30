@@ -118,21 +118,21 @@ func runDev(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  %s\n", cyan(meta.PluginIDs.Dev))
 	fmt.Println()
 
-	fmt.Printf("Dev server:\n")
+	fmt.Printf("開発サーバー:\n")
 	fmt.Printf("  %s\n", cyan(meta.Dev.Origin))
 	fmt.Println()
 
-	fmt.Printf("Entries:\n")
+	fmt.Printf("エントリー:\n")
 	fmt.Printf("  main:   %s\n", meta.Entries.Main)
 	fmt.Printf("  config: %s\n", meta.Entries.Config)
 	fmt.Println()
 
 	if flagSkipDeploy {
-		fmt.Printf("Loader:\n")
+		fmt.Printf("ローダー:\n")
 		fmt.Printf("  %s（デプロイをスキップ）\n", yellow("SKIP"))
 		fmt.Println()
 	} else {
-		fmt.Printf("Loader:\n")
+		fmt.Printf("ローダー:\n")
 		fmt.Printf("  %s（再登録不要）\n", green("OK"))
 		fmt.Println()
 	}

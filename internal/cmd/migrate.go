@@ -48,6 +48,11 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 	// 更新項目を検出
 	var updates []string
 
+	// 0. スキーマバージョンの確認
+	if cfg.SchemaVersion < config.CurrentSchemaVersion {
+		updates = append(updates, fmt.Sprintf("config.json のスキーマバージョンを更新 (v%d → v%d)", cfg.SchemaVersion, config.CurrentSchemaVersion))
+	}
+
 	// 1. config.json の packageManager フィールド
 	if cfg.PackageManager == "" {
 		pm := config.DetectPackageManager(cwd)
@@ -121,10 +126,21 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 	framework := detectCurrentFramework(cwd)
 	language := detectCurrentLanguage(cwd)
 
+	// 0. スキーマバージョンの更新
+	needsConfigSave := false
+	if cfg.SchemaVersion < config.CurrentSchemaVersion {
+		cfg.SchemaVersion = config.CurrentSchemaVersion
+		needsConfigSave = true
+	}
+
 	// 1. config.json の更新
 	if cfg.PackageManager == "" {
-		fmt.Printf("  config.json を更新中...")
 		cfg.PackageManager = config.DetectPackageManager(cwd)
+		needsConfigSave = true
+	}
+
+	if needsConfigSave {
+		fmt.Printf("  config.json を更新中...")
 		if err := cfg.Save(cwd); err != nil {
 			fmt.Printf(" %s\n", ui.WarnStyle.Render(ui.IconError))
 			return fmt.Errorf("config.json 更新エラー: %w", err)

@@ -48,6 +48,10 @@ func RunWithSpinner(message string, fn func() error) error {
 
 // Spinner はスピナーを実行（エラーなし版）
 func Spinner(title string, action func()) error {
+	if Quiet {
+		action()
+		return nil
+	}
 	return spinner.New().
 		Title(title).
 		Action(action).

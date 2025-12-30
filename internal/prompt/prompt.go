@@ -97,6 +97,21 @@ func FormatFramework(framework Framework) string {
 	}
 }
 
+// FormatLanguage は言語名を色付きで返す
+func FormatLanguage(language Language) string {
+	cyanStyle := lipgloss.NewStyle().Foreground(colorCyan)
+	yellowStyle := lipgloss.NewStyle().Foreground(colorYellow)
+
+	switch language {
+	case LanguageTypeScript:
+		return cyanStyle.Render("TypeScript")
+	case LanguageJavaScript:
+		return yellowStyle.Render("JavaScript")
+	default:
+		return string(language)
+	}
+}
+
 func AskCreateDir() (bool, error) {
 	var answer bool
 	err := newForm(

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +13,7 @@ var version = "dev"
 var rootCmd = &cobra.Command{
 	Use:   "kpdev",
 	Short: "kintone プラグイン開発ツール",
-	Long:    `kpdev は kintone プラグイン開発を Vite + HMR で行うための CLI ツールです。
+	Long: `kpdev は kintone プラグイン開発を Vite + HMR で行うための CLI ツールです。
 
 主要コマンド:
   init    プロジェクトを初期化
@@ -28,4 +29,5 @@ func Execute() error {
 
 func init() {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("kpdev version %s\n", version))
+	rootCmd.PersistentFlags().BoolVarP(&ui.Quiet, "quiet", "q", false, "出力を最小限に抑制（CI/CD向け）")
 }

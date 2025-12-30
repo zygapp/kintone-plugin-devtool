@@ -83,20 +83,21 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	ui.Info("ビルドを開始...")
 	fmt.Println()
 
-	fmt.Printf("○ バンドル中...")
-
 	opts := &plugin.BuildOptions{
 		Minify:        !flagNoMinify,
 		RemoveConsole: flagRemoveConsole,
 	}
 
-	zipPath, err := plugin.Build(cwd, opts)
+	var zipPath string
+	err = ui.SpinnerWithResult("バンドル中...", func() error {
+		var buildErr error
+		zipPath, buildErr = plugin.Build(cwd, opts)
+		return buildErr
+	})
 	if err != nil {
 		fmt.Println()
 		return err
 	}
-
-	fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 	// 結果を表示
 	fmt.Println()

@@ -8,6 +8,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Quiet は出力を最小限に抑制するフラグ（CI/CD向け）
+var Quiet bool
+
 // カラー定義
 var (
 	ColorGreen  = lipgloss.Color("42")
@@ -45,36 +48,52 @@ const (
 
 // Success は成功メッセージを表示
 func Success(msg string) {
+	if Quiet {
+		return
+	}
 	fmt.Println(SuccessStyle.Render(IconSuccess) + " " + msg)
 }
 
-// Error はエラーメッセージを表示
+// Error はエラーメッセージを表示（Quietモードでも表示）
 func Error(msg string) {
 	fmt.Println(ErrorStyle.Render(IconError) + " " + msg)
 }
 
-// Warn は警告メッセージを表示
+// Warn は警告メッセージを表示（Quietモードでも表示）
 func Warn(msg string) {
 	fmt.Println(WarnStyle.Render(IconWarn) + " " + msg)
 }
 
 // Info は情報メッセージを表示
 func Info(msg string) {
+	if Quiet {
+		return
+	}
 	fmt.Println(InfoStyle.Render(IconInfo) + " " + msg)
 }
 
 // Title はタイトルを表示
 func Title(msg string) {
+	if Quiet {
+		return
+	}
 	fmt.Println(TitleStyle.Render(msg))
 }
 
 // Box はボックスで囲んだコンテンツを表示
 func Box(content string) {
+	if Quiet {
+		return
+	}
 	fmt.Println(BoxStyle.Render(content))
 }
 
 // Spinner はスピナーを実行
 func HuhSpinner(title string, action func()) error {
+	if Quiet {
+		action()
+		return nil
+	}
 	return spinner.New().
 		Title(title).
 		Action(action).
@@ -83,6 +102,9 @@ func HuhSpinner(title string, action func()) error {
 
 // SpinnerWithResult はスピナーを実行し、エラーを返す
 func SpinnerWithResult(title string, action func() error) error {
+	if Quiet {
+		return action()
+	}
 	var actionErr error
 	err := spinner.New().
 		Title(title).

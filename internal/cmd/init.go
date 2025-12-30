@@ -154,6 +154,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// 設定保存
 	cfg := &config.Config{
+		SchemaVersion: config.CurrentSchemaVersion,
 		Kintone: config.KintoneConfig{
 			Dev: config.DevEnvConfig{
 				Domain: answers.Domain,

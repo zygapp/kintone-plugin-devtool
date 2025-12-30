@@ -9,6 +9,9 @@ import (
 const ConfigDir = ".kpdev"
 const ConfigFile = "config.json"
 
+// CurrentSchemaVersion は現在の設定ファイルスキーマバージョン
+const CurrentSchemaVersion = 1
+
 type AuthConfig struct {
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
@@ -46,6 +49,7 @@ type TargetsConfig struct {
 }
 
 type Config struct {
+	SchemaVersion  int           `json:"schemaVersion,omitempty"`
 	Kintone        KintoneConfig `json:"kintone"`
 	Dev            DevConfig     `json:"dev"`
 	Targets        TargetsConfig `json:"targets"`
@@ -113,4 +117,14 @@ func (c *Config) GetPackageManager(projectDir string) string {
 	}
 	// ロックファイルから検出
 	return DetectPackageManager(projectDir)
+}
+
+// NeedsMigration はスキーマバージョンに基づいてマイグレーションが必要か判定する
+func (c *Config) NeedsMigration() bool {
+	return c.SchemaVersion < CurrentSchemaVersion
+}
+
+// GetSchemaVersion はスキーマバージョンを返す（0はv1以前の設定ファイル）
+func (c *Config) GetSchemaVersion() int {
+	return c.SchemaVersion
 }

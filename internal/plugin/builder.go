@@ -103,7 +103,7 @@ func runViteBuild(projectDir string, opts *BuildOptions) error {
 }
 
 func runSingleViteBuild(projectDir, viteConfigPath, entry string, opts *BuildOptions) error {
-	args := []string{"vite", "build", "--config", viteConfigPath, "--logLevel", "silent"}
+	args := []string{"vite", "build", "--config", viteConfigPath}
 
 	if !opts.Minify {
 		args = append(args, "--minify", "false")
@@ -113,7 +113,12 @@ func runSingleViteBuild(projectDir, viteConfigPath, entry string, opts *BuildOpt
 	cmd.Dir = projectDir
 	cmd.Env = append(os.Environ(), "VITE_BUILD_ENTRY="+entry)
 
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w\n%s", err, string(output))
+	}
+
+	return nil
 }
 
 func organizeDistFiles(projectDir, pluginDir string, cfg *config.Config) error {

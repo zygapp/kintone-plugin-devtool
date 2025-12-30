@@ -41,7 +41,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		// 画面をクリア
 		fmt.Print("\033[H\033[2J")
 
-		fmt.Printf("%s 設定メニュー\n\n", ui.InfoStyle.Render("⚙"))
+		fmt.Printf("%s\n\n", ui.InfoStyle.Render("設定メニュー"))
 
 		action, err := askConfigAction()
 		if err != nil {
@@ -157,7 +157,8 @@ func askConfigAction() (string, error) {
 }
 
 func showCurrentConfig(cfg *config.Config, projectDir string) {
-	fmt.Printf("\n%s 現在の設定\n\n", ui.InfoStyle.Render("📋"))
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("現在の設定"))
 
 	// マニフェスト情報
 	fmt.Printf("%s\n", ui.InfoStyle.Render("プラグイン情報:"))
@@ -211,6 +212,9 @@ func showCurrentConfig(cfg *config.Config, projectDir string) {
 	}
 
 	fmt.Println()
+
+	// メニューに戻る前に一時停止
+	prompt.AskConfirm("メニューに戻る", true)
 }
 
 func loadManifest(projectDir string) (map[string]interface{}, error) {
@@ -238,7 +242,8 @@ func saveManifest(projectDir string, manifest map[string]interface{}) error {
 }
 
 func editManifest(projectDir string) error {
-	fmt.Printf("\n%s プラグイン情報の編集\n\n", ui.InfoStyle.Render("🔧"))
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("プラグイン情報の編集"))
 
 	manifest, err := loadManifest(projectDir)
 	if err != nil {
@@ -320,7 +325,8 @@ func askInput(title, defaultVal string, required bool) (string, error) {
 }
 
 func editDevConfig(cfg *config.Config) error {
-	fmt.Printf("\n%s 開発環境の設定\n\n", ui.InfoStyle.Render("🔧"))
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("開発環境の設定"))
 
 	// ドメイン
 	domain, err := prompt.AskDomain(cfg.Kintone.Dev.Domain)
@@ -353,7 +359,8 @@ func editDevConfig(cfg *config.Config) error {
 }
 
 func manageProdConfig(cfg *config.Config) error {
-	fmt.Printf("\n%s 本番環境の管理\n\n", ui.InfoStyle.Render("🔧"))
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("本番環境の管理"))
 
 	type actionChoice struct {
 		label  string
@@ -524,7 +531,8 @@ func deleteProdEnv(cfg *config.Config) error {
 }
 
 func editTargets(cfg *config.Config) error {
-	fmt.Println()
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("ターゲットの設定"))
 
 	desktop, mobile, err := prompt.AskTargets(cfg.Targets.Desktop, cfg.Targets.Mobile)
 	if err != nil {
@@ -539,14 +547,16 @@ func editTargets(cfg *config.Config) error {
 }
 
 func switchFramework(projectDir string, cfg *config.Config) error {
-	fmt.Printf("\n%s フレームワークの切り替え\n\n", ui.InfoStyle.Render("🔧"))
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("フレームワークの切り替え"))
 
-	// 現在のフレームワークを検出
+	// 現在のフレームワークと言語を検出
 	currentFramework := detectCurrentFramework(projectDir)
-	fmt.Printf("現在のフレームワーク: %s\n\n", prompt.FormatFramework(currentFramework))
+	currentLanguage := detectCurrentLanguage(projectDir)
+	fmt.Printf("現在の構成: %s + %s\n\n", prompt.FormatFramework(currentFramework), prompt.FormatLanguage(currentLanguage))
 
-	// 新しいフレームワークを選択（現在のフレームワークは除外）
-	newFramework, err := prompt.AskFrameworkExcept(currentFramework)
+	// 新しいフレームワークを選択
+	newFramework, err := prompt.AskFramework()
 	if err != nil {
 		return err
 	}
@@ -561,7 +571,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	pm := cfg.GetPackageManager(projectDir)
 
 	// 確認
-	confirm, err := prompt.AskConfirm(fmt.Sprintf("%s から %s に切り替えますか? (パッケージの再インストールが必要です)", prompt.FormatFramework(currentFramework), prompt.FormatFramework(newFramework)), true)
+	confirm, err := prompt.AskConfirm(fmt.Sprintf("%s + %s に切り替えますか? (パッケージの再インストールが必要です)", prompt.FormatFramework(newFramework), prompt.FormatLanguage(newLanguage)), true)
 	if err != nil {
 		return err
 	}
@@ -572,41 +582,43 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	}
 
 	ui.Info("フレームワークを切り替え中...")
+	fmt.Println()
 
-	// 古いフレームワークのパッケージをアンインストール
-	oldPkgs := getFrameworkPackages(currentFramework)
-	if len(oldPkgs) > 0 {
-		var uninstallArgs []string
-		switch pm {
-		case "npm":
-			uninstallArgs = append([]string{"uninstall"}, oldPkgs...)
-		case "pnpm":
-			uninstallArgs = append([]string{"remove"}, oldPkgs...)
-		case "yarn":
-			uninstallArgs = append([]string{"remove"}, oldPkgs...)
-		case "bun":
-			uninstallArgs = append([]string{"remove"}, oldPkgs...)
-		}
-		// エラーは無視（パッケージが存在しない場合もある）
-		ui.RunCommandWithSpinner("古いパッケージを削除中...", pm, uninstallArgs, projectDir)
+	// パッケージマネージャーごとのコマンドを設定
+	var removeCmd, addCmd, addDevFlag string
+	switch pm {
+	case "yarn", "pnpm", "bun":
+		removeCmd = "remove"
+		addCmd = "add"
+		addDevFlag = "-D"
+	default: // npm
+		removeCmd = "uninstall"
+		addCmd = "install"
+		addDevFlag = "-D"
+	}
+
+	// 全フレームワーク関連パッケージを削除（同じフレームワークでも言語変更に対応）
+	allOldPkgs := getAllFrameworkPackages()
+	existingPkgs := filterExistingPackages(projectDir, allOldPkgs)
+	if len(existingPkgs) > 0 {
+		args := append([]string{removeCmd}, existingPkgs...)
+		ui.RunCommandWithSpinner("旧パッケージを削除中...", pm, args, projectDir)
 	}
 
 	// 新しいフレームワークのパッケージをインストール
-	newPkgs := getFrameworkPackages(newFramework)
-	if len(newPkgs) > 0 {
-		var installArgs []string
-		switch pm {
-		case "npm":
-			installArgs = append([]string{"install", "-D"}, newPkgs...)
-		case "pnpm":
-			installArgs = append([]string{"add", "-D"}, newPkgs...)
-		case "yarn":
-			installArgs = append([]string{"add", "-D"}, newPkgs...)
-		case "bun":
-			installArgs = append([]string{"add", "-d"}, newPkgs...)
+	newDeps, newDevDeps := getFrameworkPackageNames(newFramework, newLanguage)
+
+	if len(newDeps) > 0 {
+		args := append([]string{addCmd}, newDeps...)
+		if err := ui.RunCommandWithSpinner("依存パッケージをインストール中...", pm, args, projectDir); err != nil {
+			return fmt.Errorf("依存パッケージインストールエラー: %w", err)
 		}
-		if err := ui.RunCommandWithSpinner("新しいパッケージをインストール中...", pm, installArgs, projectDir); err != nil {
-			return fmt.Errorf("パッケージインストールエラー: %w", err)
+	}
+
+	if len(newDevDeps) > 0 {
+		args := append([]string{addCmd, addDevFlag}, newDevDeps...)
+		if err := ui.RunCommandWithSpinner("開発パッケージをインストール中...", pm, args, projectDir); err != nil {
+			return fmt.Errorf("開発パッケージインストールエラー: %w", err)
 		}
 	}
 
@@ -670,8 +682,115 @@ func getFrameworkPackages(framework prompt.Framework) []string {
 	}
 }
 
+// getAllFrameworkPackages は全フレームワーク関連パッケージを返す
+func getAllFrameworkPackages() []string {
+	allPkgs := []string{}
+	seen := make(map[string]bool)
+
+	frameworks := []prompt.Framework{
+		prompt.FrameworkReact,
+		prompt.FrameworkVue,
+		prompt.FrameworkSvelte,
+	}
+
+	// TypeScriptとJavaScript両方のパッケージを収集（重複排除）
+	for _, fw := range frameworks {
+		for _, lang := range []prompt.Language{prompt.LanguageTypeScript, prompt.LanguageJavaScript} {
+			deps, devDeps := getFrameworkPackageNames(fw, lang)
+			for _, pkg := range deps {
+				if !seen[pkg] {
+					seen[pkg] = true
+					allPkgs = append(allPkgs, pkg)
+				}
+			}
+			for _, pkg := range devDeps {
+				if !seen[pkg] {
+					seen[pkg] = true
+					allPkgs = append(allPkgs, pkg)
+				}
+			}
+		}
+	}
+
+	return allPkgs
+}
+
+// filterExistingPackages はpackage.jsonに存在するパッケージのみをフィルタリングする
+func filterExistingPackages(projectDir string, pkgs []string) []string {
+	pkgPath := filepath.Join(projectDir, "package.json")
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		return nil
+	}
+
+	var pkg map[string]interface{}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil
+	}
+
+	// dependencies と devDependencies を取得
+	deps := make(map[string]bool)
+	if d, ok := pkg["dependencies"].(map[string]interface{}); ok {
+		for k := range d {
+			deps[k] = true
+		}
+	}
+	if d, ok := pkg["devDependencies"].(map[string]interface{}); ok {
+		for k := range d {
+			deps[k] = true
+		}
+	}
+
+	// 存在するパッケージのみをフィルタリング
+	existing := []string{}
+	for _, p := range pkgs {
+		if deps[p] {
+			existing = append(existing, p)
+		}
+	}
+
+	return existing
+}
+
+// getFrameworkPackageNames はフレームワークの依存パッケージと開発パッケージを返す
+func getFrameworkPackageNames(fw prompt.Framework, lang prompt.Language) (deps []string, devDeps []string) {
+	switch fw {
+	case prompt.FrameworkReact:
+		deps = []string{"react", "react-dom"}
+		devDeps = []string{
+			"@vitejs/plugin-react",
+			"eslint-plugin-react-hooks",
+			"eslint-plugin-react-refresh",
+		}
+		if lang == prompt.LanguageTypeScript {
+			devDeps = append(devDeps, "@types/react", "@types/react-dom")
+		}
+	case prompt.FrameworkVue:
+		deps = []string{"vue"}
+		devDeps = []string{
+			"@vitejs/plugin-vue",
+			"eslint-plugin-vue",
+		}
+		if lang == prompt.LanguageTypeScript {
+			devDeps = append(devDeps, "vue-tsc")
+		}
+	case prompt.FrameworkSvelte:
+		deps = []string{"svelte"}
+		devDeps = []string{
+			"@sveltejs/vite-plugin-svelte",
+			"eslint-plugin-svelte",
+			"svelte-eslint-parser",
+		}
+		if lang == prompt.LanguageTypeScript {
+			devDeps = append(devDeps, "svelte-check")
+		}
+	}
+	return
+}
+
 func editEntryPoints(projectDir string, cfg *config.Config) error {
-	fmt.Printf("\n%s エントリーポイントの設定\n\n", ui.InfoStyle.Render("🔧"))
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("エントリーポイントの設定"))
 
 	fmt.Printf("現在のエントリーポイント:\n")
 	fmt.Printf("  main:   %s\n", ui.InfoStyle.Render(cfg.Dev.Entry.Main))

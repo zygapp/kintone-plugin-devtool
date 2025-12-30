@@ -76,6 +76,27 @@ func newForm(groups ...*huh.Group) *huh.Form {
 	return huh.NewForm(groups...).WithTheme(huh.ThemeCatppuccin())
 }
 
+// FormatFramework はフレームワーク名を色付きで返す
+func FormatFramework(framework Framework) string {
+	cyanStyle := lipgloss.NewStyle().Foreground(colorCyan)
+	greenStyle := lipgloss.NewStyle().Foreground(colorGreen)
+	orangeStyle := lipgloss.NewStyle().Foreground(colorOrange)
+	yellowStyle := lipgloss.NewStyle().Foreground(colorYellow)
+
+	switch framework {
+	case FrameworkReact:
+		return cyanStyle.Render("React")
+	case FrameworkVue:
+		return greenStyle.Render("Vue")
+	case FrameworkSvelte:
+		return orangeStyle.Render("Svelte")
+	case FrameworkVanilla:
+		return yellowStyle.Render("Vanilla")
+	default:
+		return string(framework)
+	}
+}
+
 func AskCreateDir() (bool, error) {
 	var answer bool
 	err := newForm(

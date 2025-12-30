@@ -543,7 +543,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 
 	// 現在のフレームワークを検出
 	currentFramework := detectCurrentFramework(projectDir)
-	fmt.Printf("現在のフレームワーク: %s\n\n", ui.InfoStyle.Render(string(currentFramework)))
+	fmt.Printf("現在のフレームワーク: %s\n\n", prompt.FormatFramework(currentFramework))
 
 	// 新しいフレームワークを選択（現在のフレームワークは除外）
 	newFramework, err := prompt.AskFrameworkExcept(currentFramework)
@@ -561,7 +561,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	pm := cfg.GetPackageManager(projectDir)
 
 	// 確認
-	confirm, err := prompt.AskConfirm(fmt.Sprintf("%s から %s に切り替えますか? (パッケージの再インストールが必要です)", currentFramework, newFramework), true)
+	confirm, err := prompt.AskConfirm(fmt.Sprintf("%s から %s に切り替えますか? (パッケージの再インストールが必要です)", prompt.FormatFramework(currentFramework), prompt.FormatFramework(newFramework)), true)
 	if err != nil {
 		return err
 	}
@@ -631,7 +631,7 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	cfg.Dev.Entry.Config = generator.GetEntryPath(newFramework, newLanguage, "config")
 
 	fmt.Println()
-	ui.Success(fmt.Sprintf("フレームワークを %s に切り替えました", newFramework))
+	ui.Success(fmt.Sprintf("フレームワークを %s に切り替えました", prompt.FormatFramework(newFramework)))
 	ui.Info("ソースファイルは手動で更新してください")
 
 	return nil

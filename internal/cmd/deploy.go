@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	flagDeployFile string
-	flagDeployAll  bool
+	flagDeployFile  string
+	flagDeployAll   bool
+	flagDeployForce bool
 )
 
 var deployCmd = &cobra.Command{
@@ -31,6 +32,7 @@ func init() {
 
 	deployCmd.Flags().StringVar(&flagDeployFile, "file", "", "デプロイするZIPファイルのパス")
 	deployCmd.Flags().BoolVar(&flagDeployAll, "all", false, "全環境にデプロイ（対話スキップ）")
+	deployCmd.Flags().BoolVarP(&flagDeployForce, "force", "f", false, "確認ダイアログをスキップ（CI/CD向け）")
 }
 
 func runDeploy(cmd *cobra.Command, args []string) error {
@@ -67,15 +69,24 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 		needBuild := true
 		if len(zipFiles) > 0 {
-			// ZIPファイルが存在する場合は選択を促す
-			choice, err := prompt.AskZipFile(zipFiles)
-			if err != nil {
-				return err
-			}
+			if flagDeployForce {
+				// --force: 最新のZIPファイルを自動選択
+				latestZip := findLatestZipFile(distDir, zipFiles)
+				if latestZip != "" {
+					zipPath = filepath.Join(distDir, latestZip)
+					needBuild = false
+				}
+			} else {
+				// 対話形式: ZIPファイルが存在する場合は選択を促す
+				choice, err := prompt.AskZipFile(zipFiles)
+				if err != nil {
+					return err
+				}
 
-			if !choice.BuildNew {
-				zipPath = filepath.Join(distDir, choice.FilePath)
-				needBuild = false
+				if !choice.BuildNew {
+					zipPath = filepath.Join(distDir, choice.FilePath)
+					needBuild = false
+				}
 			}
 		}
 
@@ -128,8 +139,8 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	// デプロイ先を選択
 	var selectedIndices []int
-	if flagDeployAll {
-		// 全環境を選択
+	if flagDeployAll || flagDeployForce {
+		// 全環境を選択（--all または --force）
 		selectedIndices = make([]int, len(cfg.Kintone.Prod))
 		for i := range cfg.Kintone.Prod {
 			selectedIndices[i] = i
@@ -276,4 +287,28 @@ func findZipFiles(dir string) []string {
 	}
 
 	return files
+}
+
+// findLatestZipFile は最新の更新日時を持つZIPファイルを返す
+func findLatestZipFile(dir string, files []string) string {
+	if len(files) == 0 {
+		return ""
+	}
+
+	var latestFile string
+	var latestTime int64
+
+	for _, file := range files {
+		info, err := os.Stat(filepath.Join(dir, file))
+		if err != nil {
+			continue
+		}
+		modTime := info.ModTime().Unix()
+		if modTime > latestTime {
+			latestTime = modTime
+			latestFile = file
+		}
+	}
+
+	return latestFile
 }

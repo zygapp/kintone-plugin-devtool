@@ -21,6 +21,7 @@ import (
 var (
 	flagSkipDeploy bool
 	flagNoBrowser  bool
+	flagDevForce   bool
 )
 
 var devCmd = &cobra.Command{
@@ -35,6 +36,7 @@ func init() {
 
 	devCmd.Flags().BoolVar(&flagSkipDeploy, "skip-deploy", false, "ローダープラグインのデプロイをスキップ")
 	devCmd.Flags().BoolVar(&flagNoBrowser, "no-browser", false, "ブラウザを自動で開かない")
+	devCmd.Flags().BoolVarP(&flagDevForce, "force", "f", false, "確認ダイアログをスキップ（CI/CD向け）")
 }
 
 func runDev(cmd *cobra.Command, args []string) error {

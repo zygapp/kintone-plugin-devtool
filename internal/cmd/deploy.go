@@ -13,6 +13,7 @@ import (
 	"github.com/kintone/kpdev/internal/kintone"
 	"github.com/kintone/kpdev/internal/plugin"
 	"github.com/kintone/kpdev/internal/prompt"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -253,8 +254,6 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	for _, idx := range selectedIndices {
 		prod := cfg.Kintone.Prod[idx]
 
-		fmt.Printf("○ %s にデプロイ中...", prod.Name)
-
 		// 認証情報を取得
 		username := prod.Auth.Username
 		password := prod.Auth.Password
@@ -263,34 +262,43 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		// TODO: 環境変数からの認証情報取得を実装
 
 		if username == "" || password == "" {
-			fmt.Printf(" %s\n", red("✗"))
-			fmt.Printf("  認証情報が設定されていません\n")
+			fmt.Printf("%s %s: 認証情報が設定されていません\n", red("✗"), prod.Name)
 			failCount++
 			continue
 		}
 
-		// kintoneクライアントを作成
-		client := kintone.NewClient(prod.Domain, username, password)
+		var result *kintone.PluginImportResult
+		var deployErr error
 
-		// ファイルをアップロード
-		fileKey, err := client.UploadFile(zipPath)
-		if err != nil {
-			fmt.Printf(" %s\n", red("✗"))
-			fmt.Printf("  アップロードエラー: %v\n", err)
+		err := ui.SpinnerWithResult(fmt.Sprintf("%s にデプロイ中...", prod.Name), func() error {
+			// kintoneクライアントを作成
+			client := kintone.NewClient(prod.Domain, username, password)
+
+			// ファイルをアップロード
+			fileKey, err := client.UploadFile(zipPath)
+			if err != nil {
+				deployErr = fmt.Errorf("アップロードエラー: %w", err)
+				return deployErr
+			}
+
+			// プラグインをインポート
+			result, err = client.ImportPlugin(fileKey)
+			if err != nil {
+				deployErr = fmt.Errorf("インポートエラー: %w", err)
+				return deployErr
+			}
+
+			return nil
+		})
+
+		if err != nil || deployErr != nil {
+			if deployErr != nil {
+				fmt.Printf("  %s\n", red(deployErr.Error()))
+			}
 			failCount++
 			continue
 		}
 
-		// プラグインをインポート
-		result, err := client.ImportPlugin(fileKey)
-		if err != nil {
-			fmt.Printf(" %s\n", red("✗"))
-			fmt.Printf("  インポートエラー: %v\n", err)
-			failCount++
-			continue
-		}
-
-		fmt.Printf(" %s\n", green("✓"))
 		fmt.Printf("  Plugin ID: %s (v%d)\n", result.ID, result.Version)
 		successCount++
 	}

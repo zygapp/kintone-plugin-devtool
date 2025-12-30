@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/huh"
 	"github.com/fatih/color"
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
@@ -97,8 +98,19 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		}
 
 		if needBuild {
+			// モードを決定
+			deployMode := flagDeployMode
+			if !cmd.Flags().Changed("mode") && !flagDeployForce {
+				// --mode が指定されていない場合は対話で選択
+				selectedMode, err := askDeployBuildMode()
+				if err != nil {
+					return err
+				}
+				deployMode = selectedMode
+			}
+
 			// ビルドを実行
-			isPre := flagDeployMode == "pre"
+			isPre := deployMode == "pre"
 			if isPre {
 				fmt.Printf("%s プレビルドを開始...\n\n", cyan("→"))
 			} else {
@@ -107,7 +119,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			fmt.Printf("○ バンドル中...")
 
 			opts := &plugin.BuildOptions{
-				Mode:          flagDeployMode,
+				Mode:          deployMode,
 				Minify:        !isPre,
 				RemoveConsole: !isPre,
 			}
@@ -323,4 +335,26 @@ func findLatestZipFile(dir string, files []string) string {
 	}
 
 	return latestFile
+}
+
+func askDeployBuildMode() (string, error) {
+	options := []huh.Option[string]{
+		huh.NewOption("本番ビルド (minify + console削除)", "prod"),
+		huh.NewOption("プレビルド (minifyなし + console残す + 名前に[開発]付与)", "pre"),
+	}
+
+	var answer string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("ビルドモードを選択").
+				Options(options...).
+				Value(&answer),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
+		return "", err
+	}
+
+	return answer, nil
 }

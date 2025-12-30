@@ -46,12 +46,23 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// モードを検証
-	if flagBuildMode != "prod" && flagBuildMode != "pre" {
-		return fmt.Errorf("無効なモードです: %s (prod または pre を指定してください)", flagBuildMode)
+	// モードを決定
+	buildMode := flagBuildMode
+	if !cmd.Flags().Changed("mode") {
+		// --mode が指定されていない場合は対話で選択
+		selectedMode, err := askBuildMode()
+		if err != nil {
+			return err
+		}
+		buildMode = selectedMode
+	} else {
+		// モードを検証
+		if buildMode != "prod" && buildMode != "pre" {
+			return fmt.Errorf("無効なモードです: %s (prod または pre を指定してください)", buildMode)
+		}
 	}
 
-	isPre := flagBuildMode == "pre"
+	isPre := buildMode == "pre"
 
 	// メタデータを読み込み
 	meta, err := generator.LoadLoaderMeta(cwd)
@@ -98,7 +109,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	opts := &plugin.BuildOptions{
-		Mode:          flagBuildMode,
+		Mode:          buildMode,
 		Minify:        !isPre,
 		RemoveConsole: !isPre,
 	}
@@ -259,6 +270,28 @@ func askVersion(currentVersion string) (string, error) {
 			customVersion = currentVersion
 		}
 		return customVersion, nil
+	}
+
+	return answer, nil
+}
+
+func askBuildMode() (string, error) {
+	options := []huh.Option[string]{
+		huh.NewOption("本番ビルド (minify + console削除)", "prod"),
+		huh.NewOption("プレビルド (minifyなし + console残す + 名前に[開発]付与)", "pre"),
+	}
+
+	var answer string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("ビルドモードを選択").
+				Options(options...).
+				Value(&answer),
+		),
+	).WithTheme(huh.ThemeCatppuccin()).Run()
+	if err != nil {
+		return "", err
 	}
 
 	return answer, nil

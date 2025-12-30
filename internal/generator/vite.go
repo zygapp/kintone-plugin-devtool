@@ -81,17 +81,17 @@ function kpdevMiddleware() {
 
   return {
     name: 'kpdev-middleware',
-    handleHotUpdate({ file, server }: any) {
-      // src/config/index.html は kpdev が監視して再デプロイ後に HMR 発火するので無視
-      if (file.includes('src/config') && file.endsWith('.html')) {
-        console.log('[kpdev] HTML change detected, waiting for redeploy...')
-        return []
-      }
-      cache.clear()
-      server.ws.send({ type: 'full-reload' })
-      return []
-    },
     configureServer(server: any) {
+      // Vite 7 対応: handleHotUpdate の代わりに watcher を使用
+      server.watcher.on('change', (file: string) => {
+        // src/config/index.html は kpdev が監視して再デプロイ後に HMR 発火するので無視
+        if (file.includes('src/config') && file.endsWith('.html')) {
+          console.log('[kpdev] HTML change detected, waiting for redeploy...')
+          return
+        }
+        cache.clear()
+        server.ws.send({ type: 'full-reload' })
+      })
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url?.split('?')[0]
 

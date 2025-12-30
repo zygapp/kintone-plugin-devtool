@@ -82,7 +82,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 				return err
 			}
 		case "targets":
-			if err := editTargets(cfg); err != nil {
+			if err := editTargets(cwd, cfg); err != nil {
 				if errors.Is(err, huh.ErrUserAborted) {
 					continue
 				}
@@ -530,7 +530,7 @@ func deleteProdEnv(cfg *config.Config) error {
 	return nil
 }
 
-func editTargets(cfg *config.Config) error {
+func editTargets(projectDir string, cfg *config.Config) error {
 	fmt.Print("\033[H\033[2J")
 	fmt.Printf("%s\n\n", ui.InfoStyle.Render("ターゲットの設定"))
 
@@ -541,6 +541,37 @@ func editTargets(cfg *config.Config) error {
 
 	cfg.Targets.Desktop = desktop
 	cfg.Targets.Mobile = mobile
+
+	// manifest.json も更新
+	manifest, err := loadManifest(projectDir)
+	if err != nil {
+		return fmt.Errorf("manifest.json の読み込みに失敗しました: %w", err)
+	}
+
+	// desktop/mobile の設定を更新
+	if desktop {
+		if manifest["desktop"] == nil {
+			manifest["desktop"] = map[string]interface{}{
+				"js": []interface{}{"js/desktop.js"},
+			}
+		}
+	} else {
+		delete(manifest, "desktop")
+	}
+
+	if mobile {
+		if manifest["mobile"] == nil {
+			manifest["mobile"] = map[string]interface{}{
+				"js": []interface{}{"js/mobile.js"},
+			}
+		}
+	} else {
+		delete(manifest, "mobile")
+	}
+
+	if err := saveManifest(projectDir, manifest); err != nil {
+		return fmt.Errorf("manifest.json の保存に失敗しました: %w", err)
+	}
 
 	ui.Success("ターゲットを更新しました")
 	return nil

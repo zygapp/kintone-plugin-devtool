@@ -18,13 +18,18 @@ var (
 	flagDeployFile  string
 	flagDeployAll   bool
 	flagDeployForce bool
+	flagDeployMode  string
 )
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "プラグインをkintoneにデプロイ",
-	Long:  `本番用プラグインをkintoneにAPI経由でデプロイします。`,
-	RunE:  runDeploy,
+	Long: `本番用プラグインをkintoneにAPI経由でデプロイします。
+
+モード:
+  prod (デフォルト) - 本番用ビルド (minify + console削除)
+  pre              - プレビルド (minifyなし + console残す + 名前に[開発]付与)`,
+	RunE: runDeploy,
 }
 
 func init() {
@@ -33,6 +38,7 @@ func init() {
 	deployCmd.Flags().StringVar(&flagDeployFile, "file", "", "デプロイするZIPファイルのパス")
 	deployCmd.Flags().BoolVar(&flagDeployAll, "all", false, "全環境にデプロイ（対話スキップ）")
 	deployCmd.Flags().BoolVarP(&flagDeployForce, "force", "f", false, "確認ダイアログをスキップ（CI/CD向け）")
+	deployCmd.Flags().StringVar(&flagDeployMode, "mode", "prod", "ビルドモード (prod|pre)")
 }
 
 func runDeploy(cmd *cobra.Command, args []string) error {
@@ -92,12 +98,18 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 		if needBuild {
 			// ビルドを実行
-			fmt.Printf("%s ビルドを開始...\n\n", cyan("→"))
+			isPre := flagDeployMode == "pre"
+			if isPre {
+				fmt.Printf("%s プレビルドを開始...\n\n", cyan("→"))
+			} else {
+				fmt.Printf("%s 本番ビルドを開始...\n\n", cyan("→"))
+			}
 			fmt.Printf("○ バンドル中...")
 
 			opts := &plugin.BuildOptions{
-				Minify:        true,
-				RemoveConsole: true,
+				Mode:          flagDeployMode,
+				Minify:        !isPre,
+				RemoveConsole: !isPre,
 			}
 
 			zipPath, err = plugin.Build(cwd, opts)

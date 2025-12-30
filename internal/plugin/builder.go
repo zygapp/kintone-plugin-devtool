@@ -13,6 +13,7 @@ import (
 )
 
 type BuildOptions struct {
+	Mode          string // "prod" or "pre"
 	Minify        bool
 	RemoveConsole bool
 }
@@ -50,7 +51,7 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 	cleanupTempFiles(distDir)
 
 	// manifest.json を生成
-	if err := generateProdManifest(projectDir, pluginDir, cfg); err != nil {
+	if err := generateProdManifest(projectDir, pluginDir, cfg, opts); err != nil {
 		return "", fmt.Errorf("manifest生成エラー: %w", err)
 	}
 
@@ -75,7 +76,11 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 	version := getManifestVersion(projectDir)
 	nameEn := getManifestNameEn(projectDir)
 	safeName := sanitizeFilename(nameEn)
-	zipPath := filepath.Join(distDir, fmt.Sprintf("%s-prod-v%s.zip", safeName, version))
+	modeLabel := "prod"
+	if opts.Mode == "pre" {
+		modeLabel = "pre"
+	}
+	zipPath := filepath.Join(distDir, fmt.Sprintf("%s-%s-v%s.zip", safeName, modeLabel, version))
 
 	keyPath := generator.GetProdKeyPath(projectDir)
 	privateKey, err := generator.LoadPrivateKey(keyPath)
@@ -190,7 +195,7 @@ func organizeDistFiles(projectDir, pluginDir string, cfg *config.Config) error {
 	return nil
 }
 
-func generateProdManifest(projectDir, pluginDir string, cfg *config.Config) error {
+func generateProdManifest(projectDir, pluginDir string, cfg *config.Config, opts *BuildOptions) error {
 	// .kpdev/manifest.json を読み込み
 	srcManifest := filepath.Join(config.GetConfigDir(projectDir), "manifest.json")
 	data, err := os.ReadFile(srcManifest)
@@ -201,6 +206,18 @@ func generateProdManifest(projectDir, pluginDir string, cfg *config.Config) erro
 	var manifest map[string]interface{}
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return err
+	}
+
+	// preモードの場合、名前に[開発]を付与
+	if opts.Mode == "pre" {
+		if name, ok := manifest["name"].(map[string]interface{}); ok {
+			if ja, ok := name["ja"].(string); ok {
+				name["ja"] = "[開発] " + ja
+			}
+			if en, ok := name["en"].(string); ok {
+				name["en"] = "[DEV] " + en
+			}
+		}
 	}
 
 	// パスを更新

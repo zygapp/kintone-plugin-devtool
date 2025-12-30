@@ -18,23 +18,25 @@ import (
 )
 
 var (
-	flagNoMinify      bool
-	flagRemoveConsole bool
-	flagSkipVersion   bool
+	flagBuildMode   string
+	flagSkipVersion bool
 )
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "本番用プラグインをビルド",
-	Long:  `本番用プラグインZIPを生成します。`,
-	RunE:  runBuild,
+	Long: `本番用プラグインZIPを生成します。
+
+モード:
+  prod (デフォルト) - 本番用ビルド (minify + console削除)
+  pre              - プレビルド (minifyなし + console残す + 名前に[開発]付与)`,
+	RunE: runBuild,
 }
 
 func init() {
 	rootCmd.AddCommand(buildCmd)
 
-	buildCmd.Flags().BoolVar(&flagNoMinify, "no-minify", false, "minify を無効化")
-	buildCmd.Flags().BoolVar(&flagRemoveConsole, "remove-console", true, "console.* を削除")
+	buildCmd.Flags().StringVar(&flagBuildMode, "mode", "prod", "ビルドモード (prod|pre)")
 	buildCmd.Flags().BoolVar(&flagSkipVersion, "skip-version", false, "バージョン確認をスキップ")
 }
 
@@ -43,6 +45,13 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// モードを検証
+	if flagBuildMode != "prod" && flagBuildMode != "pre" {
+		return fmt.Errorf("無効なモードです: %s (prod または pre を指定してください)", flagBuildMode)
+	}
+
+	isPre := flagBuildMode == "pre"
 
 	// メタデータを読み込み
 	meta, err := generator.LoadLoaderMeta(cwd)
@@ -80,12 +89,18 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	ui.Info("ビルドを開始...")
+	// モード表示
+	if isPre {
+		ui.Info("プレビルドを開始... (minifyなし, console残す, 名前に[開発]付与)")
+	} else {
+		ui.Info("本番ビルドを開始...")
+	}
 	fmt.Println()
 
 	opts := &plugin.BuildOptions{
-		Minify:        !flagNoMinify,
-		RemoveConsole: flagRemoveConsole,
+		Mode:          flagBuildMode,
+		Minify:        !isPre,
+		RemoveConsole: !isPre,
 	}
 
 	var zipPath string
@@ -101,7 +116,11 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 	// 結果を表示
 	fmt.Println()
-	ui.Success("ビルド完了!")
+	if isPre {
+		ui.Success("プレビルド完了!")
+	} else {
+		ui.Success("ビルド完了!")
+	}
 
 	fmt.Printf("\nPlugin ID:\n")
 	fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Prod))

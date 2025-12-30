@@ -1,7 +1,7 @@
 # Build output
 build/
 dist/
-my-plugin/
+my-kintone-plugin/
 
 # npm package binaries
 npm/@zygapp/kintone-plugin-devtool/bin/darwin-*/
@@ -25,3 +25,5 @@ Thumbs.db
 # Test artifacts
 *.test
 coverage.out
+
+TASKS.md

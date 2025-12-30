@@ -52,7 +52,7 @@ kintone-plugin-dev/
 ## 生成されるプラグインプロジェクト構成
 
 ```
-my-plugin/
+my-kintone-plugin/
 ├── src/
 │   ├── main/                    # desktop/mobile 共通コード
 │   │   ├── main.tsx

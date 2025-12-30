@@ -43,8 +43,8 @@ npm install -g @zygapp/kintone-plugin-devtool
 ### 2. プロジェクト作成
 
 ```bash
-kpdev init my-plugin
-cd my-plugin
+kpdev init my-kintone-plugin
+cd my-kintone-plugin
 ```
 
 対話形式で以下を設定します：
@@ -79,7 +79,7 @@ kpdev deploy
 新しいプラグインプロジェクトを初期化します。
 
 ```bash
-kpdev init my-plugin
+kpdev init my-kintone-plugin
 ```
 
 **生成されるもの:**
@@ -162,7 +162,7 @@ kpdev config
 ## Project Structure
 
 ```
-my-plugin/
+my-kintone-plugin/
 ├── src/
 │   ├── main/             # desktop/mobile 共通コード
 │   │   ├── main.tsx

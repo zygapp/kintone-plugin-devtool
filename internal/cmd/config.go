@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/kintone/kpdev/internal/config"
+	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/prompt"
 	"github.com/spf13/cobra"
 )
@@ -76,6 +78,20 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			if err := cfg.Save(cwd); err != nil {
 				return err
 			}
+		case "framework":
+			if err := switchFramework(cwd, cfg); err != nil {
+				return err
+			}
+			if err := cfg.Save(cwd); err != nil {
+				return err
+			}
+		case "entry":
+			if err := editEntryPoints(cwd, cfg); err != nil {
+				return err
+			}
+			if err := cfg.Save(cwd); err != nil {
+				return err
+			}
 		case "exit":
 			fmt.Println("\n設定を終了します。")
 			return nil
@@ -90,6 +106,8 @@ func askConfigAction() (string, error) {
 		"開発環境の設定",
 		"本番環境の管理",
 		"ターゲット (desktop/mobile) の設定",
+		"フレームワークの切り替え",
+		"エントリーポイントの設定",
 		"終了",
 	}
 
@@ -113,6 +131,10 @@ func askConfigAction() (string, error) {
 		return "prod", nil
 	case options[4]:
 		return "targets", nil
+	case options[5]:
+		return "framework", nil
+	case options[6]:
+		return "entry", nil
 	default:
 		return "exit", nil
 	}
@@ -521,5 +543,192 @@ func editTargets(cfg *config.Config) error {
 	cfg.Targets.Mobile = mobile
 
 	fmt.Printf("\n%s ターゲットを更新しました\n", green("✓"))
+	return nil
+}
+
+func switchFramework(projectDir string, cfg *config.Config) error {
+	cyan := color.New(color.FgCyan).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+
+	fmt.Printf("\n%s フレームワークの切り替え\n\n", cyan("🔧"))
+
+	// 現在のフレームワークを検出
+	currentFramework := detectCurrentFramework(projectDir)
+	fmt.Printf("現在のフレームワーク: %s\n\n", cyan(string(currentFramework)))
+
+	// 新しいフレームワークを選択
+	newFramework, err := prompt.AskFramework()
+	if err != nil {
+		return err
+	}
+
+	if newFramework == currentFramework {
+		fmt.Printf("\n%s フレームワークは変更されていません\n", cyan("→"))
+		return nil
+	}
+
+	// 言語を選択
+	newLanguage, err := prompt.AskLanguage()
+	if err != nil {
+		return err
+	}
+
+	// パッケージマネージャーを取得
+	pm := cfg.GetPackageManager(projectDir)
+
+	// 確認
+	var confirm bool
+	confirmPrompt := &survey.Confirm{
+		Message: fmt.Sprintf("%s から %s に切り替えますか? (パッケージの再インストールが必要です)", currentFramework, newFramework),
+		Default: true,
+	}
+	if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
+		return err
+	}
+
+	if !confirm {
+		fmt.Println("キャンセルしました")
+		return nil
+	}
+
+	fmt.Printf("\n%s フレームワークを切り替え中...\n", cyan("→"))
+
+	// 古いフレームワークのパッケージをアンインストール
+	fmt.Printf("  古いパッケージを削除中...")
+	oldPkgs := getFrameworkPackages(currentFramework)
+	if len(oldPkgs) > 0 {
+		var uninstallArgs []string
+		switch pm {
+		case "npm":
+			uninstallArgs = append([]string{"uninstall"}, oldPkgs...)
+		case "pnpm":
+			uninstallArgs = append([]string{"remove"}, oldPkgs...)
+		case "yarn":
+			uninstallArgs = append([]string{"remove"}, oldPkgs...)
+		case "bun":
+			uninstallArgs = append([]string{"remove"}, oldPkgs...)
+		}
+		uninstallCmd := exec.Command(pm, uninstallArgs...)
+		uninstallCmd.Dir = projectDir
+		uninstallCmd.Run() // エラーは無視（パッケージが存在しない場合もある）
+	}
+	fmt.Printf(" %s\n", green("✓"))
+
+	// 新しいフレームワークのパッケージをインストール
+	fmt.Printf("  新しいパッケージをインストール中...")
+	newPkgs := getFrameworkPackages(newFramework)
+	if len(newPkgs) > 0 {
+		var installArgs []string
+		switch pm {
+		case "npm":
+			installArgs = append([]string{"install", "-D"}, newPkgs...)
+		case "pnpm":
+			installArgs = append([]string{"add", "-D"}, newPkgs...)
+		case "yarn":
+			installArgs = append([]string{"add", "-D"}, newPkgs...)
+		case "bun":
+			installArgs = append([]string{"add", "-d"}, newPkgs...)
+		}
+		installCmd := exec.Command(pm, installArgs...)
+		installCmd.Dir = projectDir
+		if err := installCmd.Run(); err != nil {
+			return fmt.Errorf("パッケージインストールエラー: %w", err)
+		}
+	}
+	fmt.Printf(" %s\n", green("✓"))
+
+	// vite.config.ts を再生成
+	fmt.Printf("  Vite設定を再生成中...")
+	if err := generator.GenerateViteConfig(projectDir, newFramework, newLanguage); err != nil {
+		return fmt.Errorf("Vite設定生成エラー: %w", err)
+	}
+	fmt.Printf(" %s\n", green("✓"))
+
+	// eslint.config.js を再生成（既存ファイルを削除してから）
+	fmt.Printf("  ESLint設定を再生成中...")
+	eslintPath := filepath.Join(projectDir, "eslint.config.js")
+	os.Remove(eslintPath)
+	if err := generator.GenerateESLintConfig(projectDir, newFramework, newLanguage); err != nil {
+		return fmt.Errorf("ESLint設定生成エラー: %w", err)
+	}
+	fmt.Printf(" %s\n", green("✓"))
+
+	// config.json のエントリーパスを更新
+	cfg.Dev.Entry.Main = generator.GetEntryPath(newFramework, newLanguage, "main")
+	cfg.Dev.Entry.Config = generator.GetEntryPath(newFramework, newLanguage, "config")
+
+	fmt.Printf("\n%s フレームワークを %s に切り替えました\n", green("✓"), newFramework)
+	fmt.Printf("\n%s ソースファイルは手動で更新してください\n", cyan("→"))
+
+	return nil
+}
+
+func detectCurrentFramework(projectDir string) prompt.Framework {
+	pkgPath := filepath.Join(projectDir, "package.json")
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		return prompt.FrameworkVanilla
+	}
+
+	content := string(data)
+	if contains(content, `"react"`) {
+		return prompt.FrameworkReact
+	}
+	if contains(content, `"vue"`) {
+		return prompt.FrameworkVue
+	}
+	if contains(content, `"svelte"`) {
+		return prompt.FrameworkSvelte
+	}
+	return prompt.FrameworkVanilla
+}
+
+func getFrameworkPackages(framework prompt.Framework) []string {
+	switch framework {
+	case prompt.FrameworkReact:
+		return []string{"react", "react-dom", "@vitejs/plugin-react", "@types/react", "@types/react-dom"}
+	case prompt.FrameworkVue:
+		return []string{"vue", "@vitejs/plugin-vue"}
+	case prompt.FrameworkSvelte:
+		return []string{"svelte", "@sveltejs/vite-plugin-svelte"}
+	default:
+		return nil
+	}
+}
+
+func editEntryPoints(projectDir string, cfg *config.Config) error {
+	cyan := color.New(color.FgCyan).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+
+	fmt.Printf("\n%s エントリーポイントの設定\n\n", cyan("🔧"))
+
+	fmt.Printf("現在のエントリーポイント:\n")
+	fmt.Printf("  main:   %s\n", cyan(cfg.Dev.Entry.Main))
+	fmt.Printf("  config: %s\n\n", cyan(cfg.Dev.Entry.Config))
+
+	// mainエントリーポイント
+	var mainEntry string
+	mainPrompt := &survey.Input{
+		Message: "main エントリーポイント:",
+		Default: cfg.Dev.Entry.Main,
+	}
+	if err := survey.AskOne(mainPrompt, &mainEntry, survey.WithValidator(survey.Required)); err != nil {
+		return err
+	}
+
+	// configエントリーポイント
+	var configEntry string
+	configPrompt := &survey.Input{
+		Message: "config エントリーポイント:",
+		Default: cfg.Dev.Entry.Config,
+	}
+	if err := survey.AskOne(configPrompt, &configEntry, survey.WithValidator(survey.Required)); err != nil {
+		return err
+	}
+
+	cfg.Dev.Entry.Main = mainEntry
+	cfg.Dev.Entry.Config = configEntry
+
+	fmt.Printf("\n%s エントリーポイントを更新しました\n", green("✓"))
 	return nil
 }

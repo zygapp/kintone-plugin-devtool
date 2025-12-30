@@ -545,15 +545,10 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	currentFramework := detectCurrentFramework(projectDir)
 	fmt.Printf("現在のフレームワーク: %s\n\n", ui.InfoStyle.Render(string(currentFramework)))
 
-	// 新しいフレームワークを選択
-	newFramework, err := prompt.AskFramework()
+	// 新しいフレームワークを選択（現在のフレームワークは除外）
+	newFramework, err := prompt.AskFrameworkExcept(currentFramework)
 	if err != nil {
 		return err
-	}
-
-	if newFramework == currentFramework {
-		ui.Info("フレームワークは変更されていません")
-		return nil
 	}
 
 	// 言語を選択

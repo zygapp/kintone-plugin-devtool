@@ -19,6 +19,7 @@ import (
 var (
 	flagNoMinify      bool
 	flagRemoveConsole bool
+	flagSkipVersion   bool
 )
 
 var buildCmd = &cobra.Command{
@@ -33,6 +34,7 @@ func init() {
 
 	buildCmd.Flags().BoolVar(&flagNoMinify, "no-minify", false, "minify を無効化")
 	buildCmd.Flags().BoolVar(&flagRemoveConsole, "remove-console", true, "console.* を削除")
+	buildCmd.Flags().BoolVar(&flagSkipVersion, "skip-version", false, "バージョン確認をスキップ")
 }
 
 func runBuild(cmd *cobra.Command, args []string) error {
@@ -57,18 +59,22 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 
 	currentVersion := fmt.Sprintf("%v", manifest["version"])
-	newVersion, err := askVersion(currentVersion)
-	if err != nil {
-		return err
-	}
 
-	// バージョンが変更された場合は保存
-	if newVersion != currentVersion {
-		manifest["version"] = newVersion
-		if err := saveBuildManifest(cwd, manifest); err != nil {
-			return fmt.Errorf("manifest.json の保存に失敗しました: %w", err)
+	// --skip-version でなければバージョン確認
+	if !flagSkipVersion {
+		newVersion, err := askVersion(currentVersion)
+		if err != nil {
+			return err
 		}
-		fmt.Printf("%s バージョンを更新: %s → %s\n\n", green("✓"), currentVersion, newVersion)
+
+		// バージョンが変更された場合は保存
+		if newVersion != currentVersion {
+			manifest["version"] = newVersion
+			if err := saveBuildManifest(cwd, manifest); err != nil {
+				return fmt.Errorf("manifest.json の保存に失敗しました: %w", err)
+			}
+			fmt.Printf("%s バージョンを更新: %s → %s\n\n", green("✓"), currentVersion, newVersion)
+		}
 	}
 
 	fmt.Printf("%s ビルドを開始...\n\n", cyan("→"))

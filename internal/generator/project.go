@@ -128,34 +128,36 @@ func generatePackageJSON(projectDir string, answers *prompt.InitAnswers) error {
 
 // manifestJSON はmanifest.jsonの構造を定義する（フィールド順序を保証）
 type manifestJSON struct {
-	Version         string              `json:"version"`
-	ManifestVersion int                 `json:"manifest_version"`
-	Type            string              `json:"type"`
-	Icon            string              `json:"icon"`
-	Name            manifestLocalizable `json:"name"`
-	Description     manifestLocalizable `json:"description"`
-	Config          *manifestConfig     `json:"config,omitempty"`
-	Desktop         *manifestTarget     `json:"desktop,omitempty"`
-	Mobile          *manifestTarget     `json:"mobile,omitempty"`
+	Version         string               `json:"version"`
+	ManifestVersion int                  `json:"manifest_version"`
+	Type            string               `json:"type"`
+	Icon            string               `json:"icon"`
+	Name            manifestLocalizable  `json:"name"`
+	Description     manifestLocalizable  `json:"description"`
+	HomepageURL     *manifestLocalizable `json:"homepage_url,omitempty"`
+	Config          *manifestConfig      `json:"config,omitempty"`
+	Desktop         *manifestTarget      `json:"desktop,omitempty"`
+	Mobile          *manifestTarget      `json:"mobile,omitempty"`
 }
 
 // manifestLocalizable は多言語対応フィールドを定義する
 type manifestLocalizable struct {
-	Ja string `json:"ja"`
-	En string `json:"en"`
+	Ja string `json:"ja,omitempty"`
+	En string `json:"en,omitempty"`
 }
 
 // manifestConfig はconfig画面の設定を定義する
 type manifestConfig struct {
-	HTML string   `json:"html"`
-	JS   []string `json:"js"`
-	CSS  []string `json:"css"`
+	HTML           string   `json:"html,omitempty"`
+	JS             []string `json:"js,omitempty"`
+	CSS            []string `json:"css,omitempty"`
+	RequiredParams []string `json:"required_params,omitempty"`
 }
 
 // manifestTarget はdesktop/mobileの設定を定義する
 type manifestTarget struct {
-	JS  []string `json:"js"`
-	CSS []string `json:"css"`
+	JS  []string `json:"js,omitempty"`
+	CSS []string `json:"css,omitempty"`
 }
 
 // GenerateManifest generates .kpdev/manifest.json

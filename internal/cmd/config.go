@@ -174,6 +174,27 @@ func showCurrentConfig(cfg *config.Config, projectDir string) {
 			fmt.Printf("  説明: %v\n", desc["ja"])
 		}
 		fmt.Printf("  バージョン: %v\n", manifest["version"])
+
+		// Homepage URL
+		if homepage, ok := manifest["homepage_url"].(map[string]interface{}); ok {
+			if ja, ok := homepage["ja"].(string); ok && ja != "" {
+				fmt.Printf("  Homepage (ja): %s\n", ja)
+			}
+			if en, ok := homepage["en"].(string); ok && en != "" {
+				fmt.Printf("  Homepage (en): %s\n", en)
+			}
+		}
+
+		// Required Params
+		if configMap, ok := manifest["config"].(map[string]interface{}); ok {
+			if params, ok := configMap["required_params"].([]interface{}); ok && len(params) > 0 {
+				strs := make([]string, len(params))
+				for i, p := range params {
+					strs[i] = fmt.Sprintf("%v", p)
+				}
+				fmt.Printf("  必須パラメータ: %s\n", strings.Join(strs, ", "))
+			}
+		}
 	}
 
 	// 開発環境
@@ -247,8 +268,8 @@ func orderedManifestJSON(manifest map[string]interface{}) string {
 	var sb strings.Builder
 	sb.WriteString("{\n")
 
-	// 順序: version, manifest_version, type, icon, name, description, config, desktop, mobile
-	keys := []string{"version", "manifest_version", "type", "icon", "name", "description", "config", "desktop", "mobile"}
+	// 順序: version, manifest_version, type, icon, name, description, homepage_url, config, desktop, mobile
+	keys := []string{"version", "manifest_version", "type", "icon", "name", "description", "homepage_url", "config", "desktop", "mobile"}
 
 	first := true
 	for _, key := range keys {
@@ -339,6 +360,78 @@ func editManifest(projectDir string) error {
 		return err
 	}
 	manifest["version"] = version
+
+	// Homepage URL (日本語)
+	homepageUrl, _ := manifest["homepage_url"].(map[string]interface{})
+	if homepageUrl == nil {
+		homepageUrl = make(map[string]interface{})
+	}
+	currentHomepageJa := ""
+	if v, ok := homepageUrl["ja"].(string); ok {
+		currentHomepageJa = v
+	}
+	homepageJa, err := askInput("Homepage URL (日本語)", currentHomepageJa, false)
+	if err != nil {
+		return err
+	}
+
+	// Homepage URL (英語)
+	currentHomepageEn := ""
+	if v, ok := homepageUrl["en"].(string); ok {
+		currentHomepageEn = v
+	}
+	homepageEn, err := askInput("Homepage URL (English)", currentHomepageEn, false)
+	if err != nil {
+		return err
+	}
+
+	// homepage_urlを設定（両方空なら削除）
+	if homepageJa != "" || homepageEn != "" {
+		homepageUrl["ja"] = homepageJa
+		homepageUrl["en"] = homepageEn
+		manifest["homepage_url"] = homepageUrl
+	} else {
+		delete(manifest, "homepage_url")
+	}
+
+	// Required Params
+	configMap, _ := manifest["config"].(map[string]interface{})
+	if configMap == nil {
+		configMap = make(map[string]interface{})
+	}
+	currentRequiredParams := ""
+	if params, ok := configMap["required_params"].([]interface{}); ok {
+		strs := make([]string, len(params))
+		for i, p := range params {
+			strs[i] = fmt.Sprintf("%v", p)
+		}
+		currentRequiredParams = strings.Join(strs, ", ")
+	}
+	requiredParamsStr, err := askInput("設定必須パラメータ (カンマ区切り)", currentRequiredParams, false)
+	if err != nil {
+		return err
+	}
+
+	// required_paramsを設定
+	if requiredParamsStr != "" {
+		params := strings.Split(requiredParamsStr, ",")
+		cleanParams := make([]interface{}, 0, len(params))
+		for _, p := range params {
+			trimmed := strings.TrimSpace(p)
+			if trimmed != "" {
+				cleanParams = append(cleanParams, trimmed)
+			}
+		}
+		if len(cleanParams) > 0 {
+			configMap["required_params"] = cleanParams
+			manifest["config"] = configMap
+		}
+	} else {
+		delete(configMap, "required_params")
+		if len(configMap) > 0 {
+			manifest["config"] = configMap
+		}
+	}
 
 	// 保存
 	if err := saveManifest(projectDir, manifest); err != nil {

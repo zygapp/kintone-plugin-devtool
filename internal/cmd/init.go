@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/prompt"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -174,14 +174,15 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// 新規プロジェクトの場合、パッケージをインストール
 	if !isExisting && answers.PackageManager != "" {
-		fmt.Printf("\n%s パッケージをインストール中... (%s)\n", cyan("→"), answers.PackageManager)
-
-		installCmd := exec.Command(string(answers.PackageManager), "install")
-		installCmd.Dir = projectDir
-		installCmd.Stdout = os.Stdout
-		installCmd.Stderr = os.Stderr
-
-		if err := installCmd.Run(); err != nil {
+		fmt.Println()
+		pm := string(answers.PackageManager)
+		err := ui.RunCommandWithSpinner(
+			fmt.Sprintf("パッケージをインストール中... (%s)", pm),
+			pm,
+			[]string{"install"},
+			projectDir,
+		)
+		if err != nil {
 			return fmt.Errorf("インストールエラー: %w", err)
 		}
 	}

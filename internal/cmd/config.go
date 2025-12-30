@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -12,6 +11,7 @@ import (
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/prompt"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -594,7 +594,6 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 	fmt.Printf("\n%s フレームワークを切り替え中...\n", cyan("→"))
 
 	// 古いフレームワークのパッケージをアンインストール
-	fmt.Printf("  古いパッケージを削除中...")
 	oldPkgs := getFrameworkPackages(currentFramework)
 	if len(oldPkgs) > 0 {
 		var uninstallArgs []string
@@ -608,14 +607,11 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 		case "bun":
 			uninstallArgs = append([]string{"remove"}, oldPkgs...)
 		}
-		uninstallCmd := exec.Command(pm, uninstallArgs...)
-		uninstallCmd.Dir = projectDir
-		uninstallCmd.Run() // エラーは無視（パッケージが存在しない場合もある）
+		// エラーは無視（パッケージが存在しない場合もある）
+		ui.RunCommandWithSpinner("古いパッケージを削除中...", pm, uninstallArgs, projectDir)
 	}
-	fmt.Printf(" %s\n", green("✓"))
 
 	// 新しいフレームワークのパッケージをインストール
-	fmt.Printf("  新しいパッケージをインストール中...")
 	newPkgs := getFrameworkPackages(newFramework)
 	if len(newPkgs) > 0 {
 		var installArgs []string
@@ -629,13 +625,10 @@ func switchFramework(projectDir string, cfg *config.Config) error {
 		case "bun":
 			installArgs = append([]string{"add", "-d"}, newPkgs...)
 		}
-		installCmd := exec.Command(pm, installArgs...)
-		installCmd.Dir = projectDir
-		if err := installCmd.Run(); err != nil {
+		if err := ui.RunCommandWithSpinner("新しいパッケージをインストール中...", pm, installArgs, projectDir); err != nil {
 			return fmt.Errorf("パッケージインストールエラー: %w", err)
 		}
 	}
-	fmt.Printf(" %s\n", green("✓"))
 
 	// vite.config.ts を再生成
 	fmt.Printf("  Vite設定を再生成中...")

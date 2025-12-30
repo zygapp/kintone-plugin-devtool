@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/fatih/color"
 	"github.com/kintone/kpdev/internal/config"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -89,14 +89,8 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		updateArgs = append([]string{"update"}, installedPkgs...)
 	}
 
-	fmt.Printf("%s パッケージを更新中...\n\n", cyan("→"))
-
-	updateExec := exec.Command(pm, updateArgs...)
-	updateExec.Dir = cwd
-	updateExec.Stdout = os.Stdout
-	updateExec.Stderr = os.Stderr
-
-	if err := updateExec.Run(); err != nil {
+	fmt.Println()
+	if err := ui.RunCommandWithSpinner("パッケージを更新中...", pm, updateArgs, cwd); err != nil {
 		return fmt.Errorf("更新エラー: %w", err)
 	}
 

@@ -73,6 +73,10 @@ func runBuild(cmd *cobra.Command, args []string) error {
 			if err := saveBuildManifest(cwd, manifest); err != nil {
 				return fmt.Errorf("manifest.json の保存に失敗しました: %w", err)
 			}
+			// package.json のバージョンも同期
+			if err := updatePackageJSONVersion(cwd, newVersion); err != nil {
+				return fmt.Errorf("package.json の更新に失敗しました: %w", err)
+			}
 			fmt.Printf("%s バージョンを更新: %s → %s\n\n", green("✓"), currentVersion, newVersion)
 		}
 	}
@@ -153,6 +157,33 @@ func saveBuildManifest(projectDir string, manifest map[string]interface{}) error
 		return err
 	}
 	return os.WriteFile(manifestPath, data, 0644)
+}
+
+func updatePackageJSONVersion(projectDir string, newVersion string) error {
+	pkgPath := filepath.Join(projectDir, "package.json")
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		// package.json がない場合はスキップ
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var pkg map[string]interface{}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return err
+	}
+
+	pkg["version"] = newVersion
+
+	// プロパティ順序を維持するため、orderedJSONで書き出し
+	output, err := json.MarshalIndent(pkg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(pkgPath, output, 0644)
 }
 
 func askVersion(currentVersion string) (string, error) {

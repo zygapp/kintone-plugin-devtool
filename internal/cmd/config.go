@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,6 +45,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 		action, err := askConfigAction()
 		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil
+			}
 			return err
 		}
 
@@ -52,10 +56,16 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			showCurrentConfig(cfg, cwd)
 		case "manifest":
 			if err := editManifest(cwd); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
 				return err
 			}
 		case "dev":
 			if err := editDevConfig(cfg); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
 				return err
 			}
 			if err := cfg.Save(cwd); err != nil {
@@ -63,6 +73,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			}
 		case "prod":
 			if err := manageProdConfig(cfg); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
 				return err
 			}
 			if err := cfg.Save(cwd); err != nil {
@@ -70,6 +83,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			}
 		case "targets":
 			if err := editTargets(cfg); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
 				return err
 			}
 			if err := cfg.Save(cwd); err != nil {
@@ -77,6 +93,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			}
 		case "framework":
 			if err := switchFramework(cwd, cfg); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
 				return err
 			}
 			if err := cfg.Save(cwd); err != nil {
@@ -84,6 +103,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			}
 		case "entry":
 			if err := editEntryPoints(cwd, cfg); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
 				return err
 			}
 			if err := cfg.Save(cwd); err != nil {

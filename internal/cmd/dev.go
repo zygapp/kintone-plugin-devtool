@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/kintone"
 	"github.com/kintone/kpdev/internal/plugin"
+	"github.com/kintone/kpdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -57,25 +58,10 @@ func runDev(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loader.meta.json が見つかりません。先に kpdev init を実行してください: %w", err)
 	}
 
-	green := color.New(color.FgGreen).SprintFunc()
-	cyan := color.New(color.FgCyan).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-
 	// プラグインをデプロイ
 	if !flagSkipDeploy {
-		fmt.Printf("%s 開発用プラグインをkintoneにデプロイ中...\n\n", cyan("→"))
-
-		// プラグインZIPを作成
-		fmt.Printf("○ プラグインをパッケージング中...")
-		zipPath, err := plugin.PackageDevPlugin(cwd)
-		if err != nil {
-			fmt.Println()
-			return fmt.Errorf("パッケージングエラー: %w", err)
-		}
-		fmt.Printf(" %s\n", green("✓"))
-
-		// kintoneにアップロード
-		fmt.Printf("○ プラグインをアップロード中...")
+		ui.Info("開発用プラグインをkintoneにデプロイ中...")
+		fmt.Println()
 
 		// 認証情報を取得
 		username := cfg.Kintone.Dev.Auth.Username
@@ -88,38 +74,52 @@ func runDev(cmd *cobra.Command, args []string) error {
 		}
 
 		if username == "" || password == "" {
-			fmt.Println()
 			return fmt.Errorf("認証情報が設定されていません")
 		}
 
 		client := kintone.NewClient(cfg.Kintone.Dev.Domain, username, password)
 
-		fileKey, err := client.UploadFile(zipPath)
+		// プラグインZIPを作成
+		var zipPath string
+		err = ui.SpinnerWithResult("プラグインをパッケージング中...", func() error {
+			var packErr error
+			zipPath, packErr = plugin.PackageDevPlugin(cwd)
+			return packErr
+		})
 		if err != nil {
-			fmt.Println()
+			return fmt.Errorf("パッケージングエラー: %w", err)
+		}
+
+		// kintoneにアップロード
+		var fileKey string
+		err = ui.SpinnerWithResult("プラグインをアップロード中...", func() error {
+			var uploadErr error
+			fileKey, uploadErr = client.UploadFile(zipPath)
+			return uploadErr
+		})
+		if err != nil {
 			return fmt.Errorf("アップロードエラー: %w", err)
 		}
-		fmt.Printf(" %s\n", green("✓"))
 
 		// プラグインをインポート
-		fmt.Printf("○ プラグインをインポート中...")
-		_, err = client.ImportPlugin(fileKey)
+		err = ui.SpinnerWithResult("プラグインをインポート中...", func() error {
+			_, importErr := client.ImportPlugin(fileKey)
+			return importErr
+		})
 		if err != nil {
-			fmt.Println()
 			return fmt.Errorf("インポートエラー: %w", err)
 		}
-		fmt.Printf(" %s\n", green("✓"))
 
 		fmt.Println()
 	}
 
 	// プラグイン情報を表示
 	fmt.Printf("Plugin ID:\n")
-	fmt.Printf("  %s\n", cyan(meta.PluginIDs.Dev))
+	fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Dev))
 	fmt.Println()
 
 	fmt.Printf("開発サーバー:\n")
-	fmt.Printf("  %s\n", cyan(meta.Dev.Origin))
+	fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.Dev.Origin))
 	fmt.Println()
 
 	fmt.Printf("エントリー:\n")
@@ -129,11 +129,11 @@ func runDev(cmd *cobra.Command, args []string) error {
 
 	if flagSkipDeploy {
 		fmt.Printf("ローダー:\n")
-		fmt.Printf("  %s（デプロイをスキップ）\n", yellow("SKIP"))
+		fmt.Printf("  %s（デプロイをスキップ）\n", ui.WarnStyle.Render("SKIP"))
 		fmt.Println()
 	} else {
 		fmt.Printf("ローダー:\n")
-		fmt.Printf("  %s（再登録不要）\n", green("OK"))
+		fmt.Printf("  %s（再登録不要）\n", ui.SuccessStyle.Render("OK"))
 		fmt.Println()
 	}
 
@@ -142,11 +142,15 @@ func runDev(cmd *cobra.Command, args []string) error {
 	go watchConfigHTML(cwd, configHTMLPath, cfg)
 
 	// Vite dev server を起動
-	fmt.Printf("%s Dev server を起動中...\n", cyan("→"))
+	ui.Info("Dev server を起動中...")
+	fmt.Println()
 
 	viteConfigPath := filepath.Join(config.GetConfigDir(cwd), "vite.config.ts")
 
-	viteCmd := exec.Command("npx", "vite", "--config", viteConfigPath)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	viteCmd := exec.CommandContext(ctx, "npx", "vite", "--config", viteConfigPath)
 	viteCmd.Dir = cwd
 	viteCmd.Stdout = os.Stdout
 	viteCmd.Stderr = os.Stderr
@@ -164,20 +168,30 @@ func runDev(cmd *cobra.Command, args []string) error {
 	if !flagNoBrowser {
 		go func() {
 			// Viteが起動するまで少し待つ
-			// 実際にはViteの起動完了を検出するのが理想
+			time.Sleep(1 * time.Second)
 			openBrowser(meta.Dev.Origin)
 		}()
 	}
 
 	// シグナルまたはプロセス終了を待つ
+	terminated := make(chan struct{})
 	go func() {
 		<-sigChan
-		if viteCmd.Process != nil {
-			viteCmd.Process.Signal(syscall.SIGTERM)
-		}
+		signal.Stop(sigChan)
+		cancel()
+		close(terminated)
 	}()
 
-	return viteCmd.Wait()
+	waitErr := viteCmd.Wait()
+
+	// Ctrl+C による終了の場合はエラーなしで終了
+	select {
+	case <-terminated:
+		fmt.Println()
+		return nil
+	default:
+		return waitErr
+	}
 }
 
 func watchConfigHTML(projectDir, configHTMLPath string, cfg *config.Config) {
@@ -195,12 +209,7 @@ func watchConfigHTML(projectDir, configHTMLPath string, cfg *config.Config) {
 		return
 	}
 
-	gray := color.New(color.FgHiBlack).SprintFunc()
-	fmt.Printf("  %s\n", gray("config.html を監視中: "+configHTMLPath))
-
-	green := color.New(color.FgGreen).SprintFunc()
-	cyan := color.New(color.FgCyan).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
+	fmt.Printf("  %s\n", ui.MutedStyle.Render("config.html を監視中: "+configHTMLPath))
 
 	// 処理中フラグ
 	processing := false
@@ -230,20 +239,20 @@ func watchConfigHTML(projectDir, configHTMLPath string, cfg *config.Config) {
 			// 連続イベントをまとめるための短い待機
 			time.Sleep(100 * time.Millisecond)
 
-			fmt.Printf("\n%s config.html が変更されました。プラグインを再デプロイ中...\n", yellow("→"))
+			fmt.Printf("\n%s config.html が変更されました。プラグインを再デプロイ中...\n", ui.WarnStyle.Render("->"))
 
 			// dev-plugin/config.html を更新
 			devPluginDir := filepath.Join(config.GetConfigDir(projectDir), "managed", "dev-plugin")
 			srcHTML, err := os.ReadFile(configHTMLPath)
 			if err != nil {
-				fmt.Printf("  %s HTMLの読み込みに失敗: %v\n", yellow("⚠"), err)
+				fmt.Printf("  %s HTMLの読み込みに失敗: %v\n", ui.WarnStyle.Render("!"), err)
 				processing = false
 				continue
 			}
 
 			// config.html をそのままコピー
 			if err := os.WriteFile(filepath.Join(devPluginDir, "config.html"), srcHTML, 0644); err != nil {
-				fmt.Printf("  %s HTMLの書き込みに失敗: %v\n", yellow("⚠"), err)
+				fmt.Printf("  %s HTMLの書き込みに失敗: %v\n", ui.WarnStyle.Render("!"), err)
 				processing = false
 				continue
 			}
@@ -252,12 +261,12 @@ func watchConfigHTML(projectDir, configHTMLPath string, cfg *config.Config) {
 			fmt.Printf("  ○ プラグインをパッケージング中...")
 			zipPath, err := plugin.PackageDevPlugin(projectDir)
 			if err != nil {
-				fmt.Printf(" %s\n", yellow("✗"))
+				fmt.Printf(" %s\n", ui.WarnStyle.Render("x"))
 				fmt.Printf("    %v\n", err)
 				processing = false
 				continue
 			}
-			fmt.Printf(" %s\n", green("✓"))
+			fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 			// kintoneにアップロード
 			fmt.Printf("  ○ プラグインをアップロード中...")
@@ -272,23 +281,23 @@ func watchConfigHTML(projectDir, configHTMLPath string, cfg *config.Config) {
 			client := kintone.NewClient(cfg.Kintone.Dev.Domain, username, password)
 			fileKey, err := client.UploadFile(zipPath)
 			if err != nil {
-				fmt.Printf(" %s\n", yellow("✗"))
+				fmt.Printf(" %s\n", ui.WarnStyle.Render("x"))
 				fmt.Printf("    %v\n", err)
 				processing = false
 				continue
 			}
-			fmt.Printf(" %s\n", green("✓"))
+			fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 			// プラグインをインポート
 			fmt.Printf("  ○ プラグインをインポート中...")
 			_, err = client.ImportPlugin(fileKey)
 			if err != nil {
-				fmt.Printf(" %s\n", yellow("✗"))
+				fmt.Printf(" %s\n", ui.WarnStyle.Render("x"))
 				fmt.Printf("    %v\n", err)
 				processing = false
 				continue
 			}
-			fmt.Printf(" %s\n", green("✓"))
+			fmt.Printf(" %s\n", ui.SuccessStyle.Render(ui.IconSuccess))
 
 			// kintone 側の反映を待つ
 			time.Sleep(500 * time.Millisecond)
@@ -309,7 +318,7 @@ func watchConfigHTML(projectDir, configHTMLPath string, cfg *config.Config) {
 				os.Chtimes(entryFile, now, now)
 			}
 
-			fmt.Printf("%s 再デプロイ完了。自動リロードします。\n", cyan("→"))
+			fmt.Printf("%s 再デプロイ完了。自動リロードします。\n", ui.InfoStyle.Render("->"))
 
 			processing = false
 

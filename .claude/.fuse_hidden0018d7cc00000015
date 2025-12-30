@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go get:*)",
+      "Bash(./build/kpdev:*)",
+      "Bash(make build-all:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(go build:*)",
+      "Bash(git reset:*)",
+      "Bash(/mnt/data/devs/kintone/_Libraries/kintone-plugin-devtool/build/kpdev-linux-x64 build:*)",
+      "Bash(/mnt/data/devs/kintone/_Libraries/kintone-plugin-devtool/build/kpdev-linux-x64 config:*)",
+      "Bash(/mnt/data/devs/kintone/_Libraries/kintone-plugin-devtool/build/kpdev-linux-x64 update:*)",
+      "Bash(/mnt/data/devs/kintone/_Libraries/kintone-plugin-devtool/build/kpdev-linux-x64 migrate:*)",
+      "Bash(/mnt/data/devs/kintone/_Libraries/kintone-plugin-devtool/build/kpdev-linux-x64 dev:*)",
+      "Bash(/mnt/data/devs/kintone/_Libraries/kintone-plugin-devtool/build/kpdev-linux-x64 deploy:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "WebFetch(domain:cybozu.dev)",
+      "WebSearch"
+    ]
+  }
+}

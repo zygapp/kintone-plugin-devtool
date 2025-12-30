@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go get:*)",
+      "Bash(./build/kpdev:*)",
+      "Bash(make build-all:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

@@ -103,6 +103,7 @@ kpdev dev
 |-----------|------|
 | `--skip-deploy` | ローダープラグインのデプロイをスキップ（2回目以降の起動時に便利） |
 | `--no-browser` | ブラウザを自動で開かない |
+| `--force`, `-f` | 確認ダイアログをスキップ（CI/CD向け） |
 
 ### `kpdev build`
 
@@ -113,13 +114,22 @@ kpdev dev
 `console.error` 以外の `console.*` と `debugger` は自動的に削除されます。
 
 ```bash
+# 対話形式でモードを選択
 kpdev build
+
+# 本番ビルド（minify + console削除）
+kpdev build --mode prod
+
+# プレビルド（minifyなし + console残す）
+kpdev build --mode pre
 ```
 
 **オプション:**
 
 | オプション | 説明 |
 |-----------|------|
+| `--mode` | ビルドモード（prod/pre）。未指定時は対話で選択 |
+| `--skip-version` | バージョン確認をスキップ |
 | `--no-minify` | minify を無効化 |
 | `--remove-console` | console.* を削除（デフォルト有効） |
 
@@ -133,15 +143,27 @@ kpdev build
 複数の本番環境への一括デプロイに対応。デプロイ先選択時に新規環境を追加することもできます。
 
 ```bash
+# 対話形式でモードとデプロイ先を選択
 kpdev deploy
+
+# 本番ビルドしてデプロイ
+kpdev deploy --mode prod
+
+# プレビルドしてデプロイ
+kpdev deploy --mode pre
+
+# CI/CD向け（対話スキップ）
+kpdev deploy --force
 ```
 
 **オプション:**
 
 | オプション | 説明 |
 |-----------|------|
+| `--mode` | ビルドモード（prod/pre）。未指定時は対話で選択 |
 | `--file` | 指定した ZIP ファイルをデプロイ |
 | `--all` | 全環境にデプロイ（対話スキップ） |
+| `--force`, `-f` | 確認ダイアログをスキップ（CI/CD向け） |
 
 ### `kpdev config`
 
@@ -152,10 +174,37 @@ kpdev config
 ```
 
 **設定可能な項目:**
-- プラグイン情報（名前、説明、バージョン）
+- プラグイン情報（名前、説明、バージョン、ホームページURL）
 - 開発環境（ドメイン、認証情報）
 - 本番環境の管理（追加 / 編集 / 削除）
 - ターゲット（デスクトップ / モバイル）
+- フレームワークの変更（React / Vue / Svelte / Vanilla）
+- エントリーポイントの設定
+
+### `kpdev migrate`
+
+既存プロジェクトを最新の kpdev 仕様に更新します。
+
+```bash
+# 対話形式でマイグレーション
+kpdev migrate
+
+# 確認なしでマイグレーション
+kpdev migrate --force
+```
+
+**処理内容:**
+- Vite 設定の更新（Vite 7 対応）
+- package.json の依存関係更新
+- manifest.json の標準化
+
+### `kpdev update`
+
+プロジェクトの依存パッケージを一括更新します。
+
+```bash
+kpdev update
+```
 
 ---
 

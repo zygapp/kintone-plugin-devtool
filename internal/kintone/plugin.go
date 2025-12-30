@@ -26,17 +26,25 @@ func (c *Client) ImportPlugin(fileKey string) (*PluginImportResult, error) {
 		return nil, fmt.Errorf("インポート失敗: %s", string(respBody))
 	}
 
-	return &resp.Result, nil
+	return &PluginImportResult{
+		ID:      resp.Result.PluginID,
+		Version: resp.Result.Version,
+	}, nil
 }
 
 type PluginImportResponse struct {
-	Success bool               `json:"success"`
-	Result  PluginImportResult `json:"result"`
+	Success bool                   `json:"success"`
+	Result  PluginImportResultRaw  `json:"result"`
+}
+
+type PluginImportResultRaw struct {
+	PluginID string `json:"pluginId"`
+	Version  int    `json:"version"`
 }
 
 type PluginImportResult struct {
-	ID      string `json:"id"`
-	Version int    `json:"version"`
+	ID      string
+	Version int
 }
 
 // GetPlugins はインストール済みプラグイン一覧を取得

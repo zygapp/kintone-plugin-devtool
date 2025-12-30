@@ -137,6 +137,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf(" %s\n", green("✓"))
 
+	fmt.Printf("  ESLint設定...")
+	if err := generator.GenerateESLintConfig(projectDir, answers.Framework, answers.Language); err != nil {
+		fmt.Println()
+		return fmt.Errorf("ESLint設定生成エラー: %w", err)
+	}
+	fmt.Printf(" %s\n", green("✓"))
+
 	// 設定保存
 	cfg := &config.Config{
 		Kintone: config.KintoneConfig{

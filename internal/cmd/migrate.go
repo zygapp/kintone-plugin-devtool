@@ -15,6 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	migrateForce bool
+)
+
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "プロジェクトを最新仕様に更新",
@@ -24,6 +28,7 @@ var migrateCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(migrateCmd)
+	migrateCmd.Flags().BoolVarP(&migrateForce, "force", "f", false, "確認ダイアログをスキップ（CI/CD向け）")
 }
 
 func runMigrate(cmd *cobra.Command, args []string) error {
@@ -91,18 +96,20 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// 確認
-	var confirm bool
-	confirmPrompt := &survey.Confirm{
-		Message: "更新を実行しますか?（バックアップが作成されます）",
-		Default: true,
-	}
-	if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
-		return err
-	}
+	if !migrateForce {
+		var confirm bool
+		confirmPrompt := &survey.Confirm{
+			Message: "更新を実行しますか?（バックアップが作成されます）",
+			Default: true,
+		}
+		if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
+			return err
+		}
 
-	if !confirm {
-		fmt.Println("キャンセルしました")
-		return nil
+		if !confirm {
+			fmt.Println("キャンセルしました")
+			return nil
+		}
 	}
 
 	// バックアップを作成

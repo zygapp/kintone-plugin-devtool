@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,6 +53,9 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		// --mode が指定されていない場合は対話で選択
 		selectedMode, err := askBuildMode()
 		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil
+			}
 			return err
 		}
 		buildMode = selectedMode
@@ -82,6 +86,9 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if !flagSkipVersion {
 		newVersion, err := askVersion(currentVersion)
 		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil
+			}
 			return err
 		}
 

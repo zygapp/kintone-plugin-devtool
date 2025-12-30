@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -87,6 +88,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 				// 対話形式: ZIPファイルが存在する場合は選択を促す
 				choice, err := prompt.AskZipFile(zipFiles)
 				if err != nil {
+					if errors.Is(err, huh.ErrUserAborted) {
+						return nil
+					}
 					return err
 				}
 
@@ -104,6 +108,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 				// --mode が指定されていない場合は対話で選択
 				selectedMode, err := askDeployBuildMode()
 				if err != nil {
+					if errors.Is(err, huh.ErrUserAborted) {
+						return nil
+					}
 					return err
 				}
 				deployMode = selectedMode
@@ -140,6 +147,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		// 対話形式で本番環境を追加
 		prodEnv, err := prompt.AskProdEnvironment()
 		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil
+			}
 			return err
 		}
 
@@ -181,6 +191,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 		choice, err := prompt.AskDeployTargets(targets)
 		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil
+			}
 			return err
 		}
 
@@ -188,6 +201,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		if choice.AddNew {
 			prodEnv, err := prompt.AskProdEnvironment()
 			if err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					return nil
+				}
 				return err
 			}
 

@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/kintone/kpdev/internal/config"
 	"github.com/kintone/kpdev/internal/generator"
 	"github.com/kintone/kpdev/internal/prompt"
@@ -100,6 +102,9 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 	if !migrateForce {
 		confirm, err := prompt.AskConfirm("更新を実行しますか?（バックアップが作成されます）", true)
 		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil
+			}
 			return err
 		}
 

@@ -628,6 +628,7 @@ kpdev deploy --force
 操作を選択してください:
   現在の設定を表示
   プラグイン情報 (manifest) の編集
+  必須パラメータの編集
   開発環境の設定
   本番環境の管理
   ターゲット (desktop/mobile) の設定
@@ -650,27 +651,33 @@ kpdev deploy --force
    - 説明（日本語/英語）
    - バージョン
    - ホームページURL
+   - 各フィールドは既存値が初期値として設定される
 
-3. **開発環境の設定**
+3. **必須パラメータの編集**
+   - `config.required_params` をカンマ区切りで入力
+   - トップレベルに `required_params` がある場合は `config` 内に自動移行
+   - 空にすると `required_params` を削除
+
+4. **開発環境の設定**
    - kintoneドメイン
    - 認証情報（ユーザー名/パスワード）
 
-4. **本番環境の管理**
+5. **本番環境の管理**
    - 環境を追加
    - 環境を編集
    - 環境を削除
 
-5. **ターゲット（desktop/mobile）の設定**
+6. **ターゲット（desktop/mobile）の設定**
    - デスクトップ有効/無効
    - モバイル有効/無効
    - 変更時は manifest.json も自動更新
 
-6. **フレームワークの変更**
+7. **フレームワークの変更**
    - React / Vue / Svelte / Vanilla から選択
    - 選択するとエントリーポイントが自動的に更新される
    - 現在のフレームワークは選択肢から除外
 
-7. **エントリーポイントの設定**
+8. **エントリーポイントの設定**
    - メインエントリ（src/main/main.*）のパスを変更
    - コンフィグエントリ（src/config/main.*）のパスを変更
 
@@ -878,6 +885,7 @@ manifest.json のプロパティは以下の標準順序で保存される：
 
 - `homepage_url`: プラグインのヘルプページURL（日本語/英語）
 - `config.required_params`: 必須設定パラメータの配列
+  - `required_params` がトップレベルに配置されている場合、`kpdev config` や `kpdev build` 実行時に `config` 内へ自動移行される
 
 ### kpdev が自動更新するフィールド
 
@@ -887,6 +895,10 @@ manifest.json のプロパティは以下の標準順序で保存される：
 - `config.html` / `config.js` / `config.css`
 
 ユーザーはこれらのパスを気にする必要がない。
+
+### プロパティ順序の保持
+
+`.kpdev/manifest.json` と `dist/plugin/manifest.json`（ビルド成果物）の両方で、プロパティ順序が標準順序に従って保存される。ビルド時に `config.required_params` も保持される。
 
 ## 14. プラグイン署名仕様
 

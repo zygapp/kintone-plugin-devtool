@@ -166,11 +166,8 @@ func loadBuildManifest(projectDir string) (map[string]interface{}, error) {
 
 func saveBuildManifest(projectDir string, manifest map[string]interface{}) error {
 	manifestPath := filepath.Join(config.GetConfigDir(projectDir), "manifest.json")
-	data, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(manifestPath, data, 0644)
+	data := config.MarshalManifestJSON(manifest)
+	return os.WriteFile(manifestPath, []byte(data), 0644)
 }
 
 func updatePackageJSONVersion(projectDir string, newVersion string) error {

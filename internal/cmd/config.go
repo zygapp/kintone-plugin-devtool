@@ -62,6 +62,13 @@ func runConfig(cmd *cobra.Command, args []string) error {
 				}
 				return err
 			}
+		case "required_params":
+			if err := editRequiredParams(cwd); err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					continue
+				}
+				return err
+			}
 		case "dev":
 			if err := editDevConfig(cfg); err != nil {
 				if errors.Is(err, huh.ErrUserAborted) {
@@ -128,6 +135,7 @@ func askConfigAction() (string, error) {
 	choices := []actionChoice{
 		{"現在の設定を表示", "view"},
 		{"プラグイン情報 (manifest) の編集", "manifest"},
+		{"必須パラメータの編集", "required_params"},
 		{"開発環境の設定", "dev"},
 		{"本番環境の管理", "prod"},
 		{"ターゲット (desktop/mobile) の設定", "targets"},
@@ -185,15 +193,20 @@ func showCurrentConfig(cfg *config.Config, projectDir string) {
 			}
 		}
 
-		// Required Params
+		// Required Params（config内とトップレベルの両方を確認）
+		var reqParams []interface{}
 		if configMap, ok := manifest["config"].(map[string]interface{}); ok {
-			if params, ok := configMap["required_params"].([]interface{}); ok && len(params) > 0 {
-				strs := make([]string, len(params))
-				for i, p := range params {
-					strs[i] = fmt.Sprintf("%v", p)
-				}
-				fmt.Printf("  必須パラメータ: %s\n", strings.Join(strs, ", "))
+			reqParams, _ = configMap["required_params"].([]interface{})
+		}
+		if reqParams == nil {
+			reqParams, _ = manifest["required_params"].([]interface{})
+		}
+		if len(reqParams) > 0 {
+			strs := make([]string, len(reqParams))
+			for i, p := range reqParams {
+				strs[i] = fmt.Sprintf("%v", p)
 			}
+			fmt.Printf("  必須パラメータ: %s\n", strings.Join(strs, ", "))
 		}
 	}
 
@@ -258,61 +271,9 @@ func saveManifest(projectDir string, manifest map[string]interface{}) error {
 	manifestPath := filepath.Join(config.GetConfigDir(projectDir), "manifest.json")
 
 	// 標準順序でJSONを生成
-	data := orderedManifestJSON(manifest)
+	data := config.MarshalManifestJSON(manifest)
 
 	return os.WriteFile(manifestPath, []byte(data), 0644)
-}
-
-// orderedManifestJSON はmanifestを標準順序でJSON文字列に変換する
-func orderedManifestJSON(manifest map[string]interface{}) string {
-	var sb strings.Builder
-	sb.WriteString("{\n")
-
-	// 順序: version, manifest_version, type, icon, name, description, homepage_url, config, desktop, mobile
-	keys := []string{"version", "manifest_version", "type", "icon", "name", "description", "homepage_url", "config", "desktop", "mobile"}
-
-	first := true
-	for _, key := range keys {
-		if val, ok := manifest[key]; ok {
-			if !first {
-				sb.WriteString(",\n")
-			}
-			first = false
-			writeJSONField(&sb, key, val, "  ")
-		}
-	}
-
-	// その他のキーを追加
-	for key, val := range manifest {
-		found := false
-		for _, k := range keys {
-			if k == key {
-				found = true
-				break
-			}
-		}
-		if !found {
-			if !first {
-				sb.WriteString(",\n")
-			}
-			first = false
-			writeJSONField(&sb, key, val, "  ")
-		}
-	}
-
-	sb.WriteString("\n}")
-	return sb.String()
-}
-
-func writeJSONField(sb *strings.Builder, key string, val interface{}, indent string) {
-	jsonVal, _ := json.MarshalIndent(val, indent, "  ")
-	// インデントを調整
-	jsonStr := string(jsonVal)
-	sb.WriteString(indent)
-	sb.WriteString("\"")
-	sb.WriteString(key)
-	sb.WriteString("\": ")
-	sb.WriteString(jsonStr)
 }
 
 func editManifest(projectDir string) error {
@@ -394,11 +355,36 @@ func editManifest(projectDir string) error {
 		delete(manifest, "homepage_url")
 	}
 
-	// Required Params
+	// 保存
+	if err := saveManifest(projectDir, manifest); err != nil {
+		return err
+	}
+
+	ui.Success("プラグイン情報を更新しました")
+	return nil
+}
+
+func editRequiredParams(projectDir string) error {
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n\n", ui.InfoStyle.Render("必須パラメータの編集"))
+
+	manifest, err := loadManifest(projectDir)
+	if err != nil {
+		return fmt.Errorf("manifest.json の読み込みに失敗しました: %w", err)
+	}
+
+	// config内のrequired_paramsを取得（トップレベルにある場合はconfig内に移動）
 	configMap, _ := manifest["config"].(map[string]interface{})
 	if configMap == nil {
 		configMap = make(map[string]interface{})
 	}
+	if topParams := manifest["required_params"]; topParams != nil {
+		if configMap["required_params"] == nil {
+			configMap["required_params"] = topParams
+		}
+		delete(manifest, "required_params")
+	}
+
 	currentRequiredParams := ""
 	if params, ok := configMap["required_params"].([]interface{}); ok {
 		strs := make([]string, len(params))
@@ -407,12 +393,12 @@ func editManifest(projectDir string) error {
 		}
 		currentRequiredParams = strings.Join(strs, ", ")
 	}
-	requiredParamsStr, err := askInput("設定必須パラメータ (カンマ区切り)", currentRequiredParams, false)
+
+	requiredParamsStr, err := askInput("必須パラメータ (カンマ区切り)", currentRequiredParams, false)
 	if err != nil {
 		return err
 	}
 
-	// required_paramsを設定
 	if requiredParamsStr != "" {
 		params := strings.Split(requiredParamsStr, ",")
 		cleanParams := make([]interface{}, 0, len(params))
@@ -433,21 +419,19 @@ func editManifest(projectDir string) error {
 		}
 	}
 
-	// 保存
 	if err := saveManifest(projectDir, manifest); err != nil {
 		return err
 	}
 
-	ui.Success("プラグイン情報を更新しました")
+	ui.Success("必須パラメータを更新しました")
 	return nil
 }
 
 func askInput(title, defaultVal string, required bool) (string, error) {
-	var answer string
+	answer := defaultVal
 	input := huh.NewInput().
 		Title(title).
-		Value(&answer).
-		Placeholder(defaultVal)
+		Value(&answer)
 
 	if required {
 		input = input.Validate(func(s string) error {
@@ -463,9 +447,6 @@ func askInput(title, defaultVal string, required bool) (string, error) {
 	).WithTheme(huh.ThemeCatppuccin()).Run()
 	if err != nil {
 		return "", err
-	}
-	if answer == "" {
-		answer = defaultVal
 	}
 	return answer, nil
 }

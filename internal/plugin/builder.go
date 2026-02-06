@@ -247,23 +247,34 @@ func generateProdManifest(projectDir, pluginDir string, cfg *config.Config, opts
 		delete(manifest, "mobile")
 	}
 
-	manifest["config"] = map[string]interface{}{
+	// 既存のrequired_paramsを保持（config内を優先、トップレベルもフォールバック）
+	var existingRequiredParams interface{}
+	if existingConfig, ok := manifest["config"].(map[string]interface{}); ok {
+		existingRequiredParams = existingConfig["required_params"]
+	}
+	if existingRequiredParams == nil {
+		existingRequiredParams = manifest["required_params"]
+	}
+	delete(manifest, "required_params")
+
+	configMap := map[string]interface{}{
 		"html": "html/config.html",
 		"js":   []string{"js/config.js"},
 	}
 	// CSS が存在する場合のみ追加
 	if _, err := os.Stat(filepath.Join(pluginDir, "css", "config.css")); err == nil {
-		configMap := manifest["config"].(map[string]interface{})
 		configMap["css"] = []string{"css/config.css"}
 	}
-
-	// 保存
-	outData, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return err
+	// required_paramsをconfig内に復元
+	if existingRequiredParams != nil {
+		configMap["required_params"] = existingRequiredParams
 	}
+	manifest["config"] = configMap
 
-	return os.WriteFile(filepath.Join(pluginDir, "manifest.json"), outData, 0644)
+	// 標準順序で保存
+	outData := config.MarshalManifestJSON(manifest)
+
+	return os.WriteFile(filepath.Join(pluginDir, "manifest.json"), []byte(outData), 0644)
 }
 
 func generateProdConfigHTML(projectDir, pluginDir string) error {

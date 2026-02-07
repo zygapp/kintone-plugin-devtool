@@ -82,7 +82,12 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 	}
 	zipPath := filepath.Join(distDir, fmt.Sprintf("%s-%s-v%s.zip", safeName, modeLabel, version))
 
-	keyPath := generator.GetProdKeyPath(projectDir)
+	var keyPath string
+	if opts.Mode == "pre" {
+		keyPath = generator.GetDevKeyPath(projectDir)
+	} else {
+		keyPath = generator.GetProdKeyPath(projectDir)
+	}
 	privateKey, err := generator.LoadPrivateKey(keyPath)
 	if err != nil {
 		return "", fmt.Errorf("秘密鍵読み込みエラー: %w", err)

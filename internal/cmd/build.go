@@ -141,7 +141,11 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\nPlugin ID:\n")
-	fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Prod))
+	if isPre {
+		fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Dev))
+	} else {
+		fmt.Printf("  %s\n", ui.InfoStyle.Render(meta.PluginIDs.Prod))
+	}
 
 	fmt.Printf("\n出力ファイル:\n")
 	fmt.Printf("  %s\n\n", ui.InfoStyle.Render(zipPath))

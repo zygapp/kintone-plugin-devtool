@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -185,20 +186,11 @@ func updatePackageJSONVersion(projectDir string, newVersion string) error {
 		return err
 	}
 
-	var pkg map[string]interface{}
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return err
-	}
+	// JSONをパースせず正規表現でバージョンのみ置換（プロパティ順序を維持）
+	re := regexp.MustCompile(`("version"\s*:\s*)"[^"]*"`)
+	replaced := re.ReplaceAll(data, []byte(`${1}"`+newVersion+`"`))
 
-	pkg["version"] = newVersion
-
-	// プロパティ順序を維持するため、orderedJSONで書き出し
-	output, err := json.MarshalIndent(pkg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(pkgPath, output, 0644)
+	return os.WriteFile(pkgPath, replaced, 0644)
 }
 
 func askVersion(currentVersion string) (string, error) {

@@ -63,6 +63,8 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
+	ui.Banner()
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err

@@ -373,15 +373,14 @@ func getManifestNameEn(projectDir string) string {
 }
 
 // copyLicenseIfExists はプロジェクトディレクトリの LICENSE / LICENSE.txt を destDir にコピーする
+// LICENSE を優先し、存在する最初のファイルのみコピーする
 func copyLicenseIfExists(projectDir, destDir string) error {
 	candidates := []string{"LICENSE", "LICENSE.txt"}
 	for _, name := range candidates {
 		src := filepath.Join(projectDir, name)
 		if _, err := os.Stat(src); err == nil {
 			dst := filepath.Join(destDir, name)
-			if err := copyFile(src, dst); err != nil {
-				return err
-			}
+			return copyFile(src, dst)
 		}
 	}
 	return nil

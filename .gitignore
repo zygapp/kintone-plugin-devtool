@@ -27,3 +27,6 @@ Thumbs.db
 coverage.out
 
 TASKS.md
+# AI agent directories (local only)
+.claude
+CLAUDE.md

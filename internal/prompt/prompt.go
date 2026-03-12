@@ -214,15 +214,9 @@ func AskDomain(defaultVal string) (string, error) {
 		huh.NewGroup(
 			huh.NewInput().
 				Title("kintone ドメイン").
-				Description("例: example または example.cybozu.com").
+				Description("空欄でスキップ（後から kpdev config で設定可能）").
 				Value(&answer).
-				Placeholder(placeholder).
-				Validate(func(s string) error {
-					if s == "" && defaultVal == "" {
-						return errRequired
-					}
-					return nil
-				}),
+				Placeholder(placeholder),
 		),
 	).Run()
 	if err != nil {
@@ -230,6 +224,9 @@ func AskDomain(defaultVal string) (string, error) {
 	}
 	if answer == "" {
 		answer = defaultVal
+	}
+	if answer == "" {
+		return "", nil
 	}
 	return CompleteDomain(answer), nil
 }

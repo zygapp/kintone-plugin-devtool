@@ -295,19 +295,26 @@ func collectAnswers(projectDir string, projectName string) (*prompt.InitAnswers,
 		answers.DescriptionEn = descEn
 	}
 
-	// ドメイン
-	if flagDomain != "" {
-		answers.Domain = prompt.CompleteDomain(flagDomain)
-	} else if meta != nil && meta.Kintone.Domain != "" {
-		answers.Domain = meta.Kintone.Domain
-	} else if cfg, err := config.Load(projectDir); err == nil && cfg.Kintone.Dev.Domain != "" {
-		answers.Domain = cfg.Kintone.Dev.Domain
+	// 対象画面
+	if flagDesktop || flagMobile {
+		answers.TargetDesktop = flagDesktop
+		answers.TargetMobile = flagMobile
 	} else {
-		domain, err := prompt.AskDomain("")
+		defaultDesktop := true
+		defaultMobile := false
+		if cfg, err := config.Load(projectDir); err == nil {
+			defaultDesktop = cfg.Targets.Desktop
+			defaultMobile = cfg.Targets.Mobile
+			if !defaultDesktop && !defaultMobile {
+				defaultDesktop = true
+			}
+		}
+		desktop, mobile, err := prompt.AskTargets(defaultDesktop, defaultMobile)
 		if err != nil {
 			return nil, err
 		}
-		answers.Domain = domain
+		answers.TargetDesktop = desktop
+		answers.TargetMobile = mobile
 	}
 
 	// フレームワーク・言語
@@ -342,60 +349,6 @@ func collectAnswers(projectDir string, projectName string) (*prompt.InitAnswers,
 		}
 	}
 
-	// 対象画面
-	if flagDesktop || flagMobile {
-		answers.TargetDesktop = flagDesktop
-		answers.TargetMobile = flagMobile
-	} else {
-		defaultDesktop := true
-		defaultMobile := false
-		if cfg, err := config.Load(projectDir); err == nil {
-			defaultDesktop = cfg.Targets.Desktop
-			defaultMobile = cfg.Targets.Mobile
-			if !defaultDesktop && !defaultMobile {
-				defaultDesktop = true
-			}
-		}
-		desktop, mobile, err := prompt.AskTargets(defaultDesktop, defaultMobile)
-		if err != nil {
-			return nil, err
-		}
-		answers.TargetDesktop = desktop
-		answers.TargetMobile = mobile
-	}
-
-	// 認証情報
-	if flagUsername != "" && flagPassword != "" {
-		answers.Username = flagUsername
-		answers.Password = flagPassword
-	} else {
-		envCfg, _ := config.LoadEnv(projectDir)
-		if envCfg != nil && envCfg.HasAuth() {
-			answers.Username = envCfg.Username
-			answers.Password = envCfg.Password
-		} else {
-			if flagUsername != "" {
-				answers.Username = flagUsername
-			} else {
-				username, err := prompt.AskUsername()
-				if err != nil {
-					return nil, err
-				}
-				answers.Username = username
-			}
-
-			if flagPassword != "" {
-				answers.Password = flagPassword
-			} else {
-				password, err := prompt.AskPassword()
-				if err != nil {
-					return nil, err
-				}
-				answers.Password = password
-			}
-		}
-	}
-
 	// パッケージマネージャー（新規プロジェクトのみ）
 	if !isExisting {
 		if flagPackageManager != "" {
@@ -417,6 +370,55 @@ func collectAnswers(projectDir string, projectName string) (*prompt.InitAnswers,
 				return nil, err
 			}
 			answers.PackageManager = pm
+		}
+	}
+
+	// ドメイン・認証情報（任意）
+	if flagDomain != "" {
+		answers.Domain = prompt.CompleteDomain(flagDomain)
+	} else if meta != nil && meta.Kintone.Domain != "" {
+		answers.Domain = meta.Kintone.Domain
+	} else if cfg, err := config.Load(projectDir); err == nil && cfg.Kintone.Dev.Domain != "" {
+		answers.Domain = cfg.Kintone.Dev.Domain
+	} else {
+		domain, err := prompt.AskDomain("")
+		if err != nil {
+			return nil, err
+		}
+		answers.Domain = domain
+	}
+
+	// ドメインが空の場合は認証情報をスキップ
+	if answers.Domain != "" {
+		if flagUsername != "" && flagPassword != "" {
+			answers.Username = flagUsername
+			answers.Password = flagPassword
+		} else {
+			envCfg, _ := config.LoadEnv(projectDir)
+			if envCfg != nil && envCfg.HasAuth() {
+				answers.Username = envCfg.Username
+				answers.Password = envCfg.Password
+			} else {
+				if flagUsername != "" {
+					answers.Username = flagUsername
+				} else {
+					username, err := prompt.AskUsername()
+					if err != nil {
+						return nil, err
+					}
+					answers.Username = username
+				}
+
+				if flagPassword != "" {
+					answers.Password = flagPassword
+				} else {
+					password, err := prompt.AskPassword()
+					if err != nil {
+						return nil, err
+					}
+					answers.Password = password
+				}
+			}
 		}
 	}
 

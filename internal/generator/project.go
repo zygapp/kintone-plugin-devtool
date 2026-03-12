@@ -40,6 +40,13 @@ func GenerateProject(projectDir string, answers *prompt.InitAnswers) error {
 		return err
 	}
 
+	// tsconfig.json (TypeScriptの場合のみ)
+	if answers.Language == prompt.LanguageTypeScript {
+		if err := generateTSConfig(projectDir, answers); err != nil {
+			return err
+		}
+	}
+
 	// .gitignore
 	if err := generateGitignore(projectDir); err != nil {
 		return err
@@ -436,6 +443,37 @@ dist/
 Thumbs.db
 `
 	return os.WriteFile(filepath.Join(projectDir, ".gitignore"), []byte(content), 0644)
+}
+
+func generateTSConfig(projectDir string, answers *prompt.InitAnswers) error {
+	compilerOptions := map[string]interface{}{
+		"target":                 "ES2020",
+		"module":                 "ESNext",
+		"moduleResolution":       "bundler",
+		"strict":                 true,
+		"esModuleInterop":        true,
+		"skipLibCheck":           true,
+		"forceConsistentCasingInFileNames": true,
+	}
+
+	switch answers.Framework {
+	case prompt.FrameworkReact:
+		compilerOptions["jsx"] = "react-jsx"
+	case prompt.FrameworkSvelte:
+		// Svelte は svelte-check で型チェックするため追加設定不要
+	}
+
+	tsconfig := map[string]interface{}{
+		"compilerOptions": compilerOptions,
+		"include":         []string{"src"},
+	}
+
+	data, err := json.MarshalIndent(tsconfig, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(projectDir, "tsconfig.json"), data, 0644)
 }
 
 func generateReadme(projectDir string, answers *prompt.InitAnswers) error {

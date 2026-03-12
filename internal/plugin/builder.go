@@ -72,6 +72,11 @@ func Build(projectDir string, opts *BuildOptions) (string, error) {
 		return "", fmt.Errorf("config.html生成エラー: %w", err)
 	}
 
+	// LICENSEファイルをコピー（存在する場合）
+	if err := copyLicenseIfExists(projectDir, pluginDir); err != nil {
+		return "", fmt.Errorf("LICENSEファイルのコピーエラー: %w", err)
+	}
+
 	// プラグインZIPを作成（署名付き）
 	version := getManifestVersion(projectDir)
 	nameEn := getManifestNameEn(projectDir)
@@ -365,6 +370,20 @@ func getManifestNameEn(projectDir string) string {
 	}
 
 	return manifest.Name.En
+}
+
+// copyLicenseIfExists はプロジェクトディレクトリの LICENSE / LICENSE.txt を destDir にコピーする
+// LICENSE を優先し、存在する最初のファイルのみコピーする
+func copyLicenseIfExists(projectDir, destDir string) error {
+	candidates := []string{"LICENSE", "LICENSE.txt"}
+	for _, name := range candidates {
+		src := filepath.Join(projectDir, name)
+		if _, err := os.Stat(src); err == nil {
+			dst := filepath.Join(destDir, name)
+			return copyFile(src, dst)
+		}
+	}
+	return nil
 }
 
 // sanitizeFilename は英数字以外をアンダースコアに変換する

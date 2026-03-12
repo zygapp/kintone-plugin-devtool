@@ -47,7 +47,9 @@
       "Bash(git -C:*)",
       "Bash(rm CLAUDE.md && mv AGENTS.md CLAUDE.md && ln -s CLAUDE.md AGENTS.md && ln -s .claude .agents)",
       "Bash(rm AGENTS.md && mv CLAUDE.md AGENTS.md && ln -s AGENTS.md CLAUDE.md && rm .agents && mv .claude .agents && ln -s .agents .claude)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git merge:*)",
+      "Bash(ln -s AGENTS.md CLAUDE.md && ls -la CLAUDE.md)"
     ]
   }
 }

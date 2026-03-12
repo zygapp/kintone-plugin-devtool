@@ -2,6 +2,7 @@
 build/
 dist/
 my-kintone-plugin/
+.fuse_*
 
 # npm package binaries
 npm/@zygapp/kintone-plugin-devtool/bin/darwin-*/
@@ -27,3 +28,7 @@ Thumbs.db
 coverage.out
 
 TASKS.md
+
+# AI
+.claude
+CLAUDE.md

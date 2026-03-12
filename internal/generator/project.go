@@ -497,16 +497,19 @@ func generateReactMain(language prompt.Language) string {
 import App from './App'
 import './style.css'
 
-kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
-  const el = kintone.app.getHeaderSpaceElement()
-  if (el && !el.querySelector('#kpdev-main-root')) {
-    const container = document.createElement('div')
-    container.id = 'kpdev-main-root'
-    el.appendChild(container)
-    createRoot(container).render(<App />)
-  }
-  return event
-})
+((PLUGIN_ID) => {
+  kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
+    const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+    const el = kintone.app.getHeaderSpaceElement()
+    if (el && !el.querySelector('#kpdev-main-root')) {
+      const container = document.createElement('div')
+      container.id = 'kpdev-main-root'
+      el.appendChild(container)
+      createRoot(container).render(<App />)
+    }
+    return event
+  })
+})(kintone.$PLUGIN_ID)
 `
 }
 
@@ -515,10 +518,13 @@ func generateReactConfigMain(language prompt.Language) string {
 import App from './App'
 import './style.css'
 
-const container = document.getElementById('config-root')
-if (container) {
-  createRoot(container).render(<App />)
-}
+((PLUGIN_ID) => {
+  const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+  const container = document.getElementById('config-root')
+  if (container) {
+    createRoot(container).render(<App />)
+  }
+})(kintone.$PLUGIN_ID)
 `
 }
 
@@ -550,16 +556,19 @@ func generateVueMain(language prompt.Language) string {
 import App from './App.vue'
 import './style.css'
 
-kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
-  const el = kintone.app.getHeaderSpaceElement()
-  if (el && !el.querySelector('#kpdev-main-root')) {
-    const container = document.createElement('div')
-    container.id = 'kpdev-main-root'
-    el.appendChild(container)
-    createApp(App).mount(container)
-  }
-  return event
-})
+((PLUGIN_ID) => {
+  kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
+    const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+    const el = kintone.app.getHeaderSpaceElement()
+    if (el && !el.querySelector('#kpdev-main-root')) {
+      const container = document.createElement('div')
+      container.id = 'kpdev-main-root'
+      el.appendChild(container)
+      createApp(App).mount(container)
+    }
+    return event
+  })
+})(kintone.$PLUGIN_ID)
 `
 }
 
@@ -568,10 +577,13 @@ func generateVueConfigMain(language prompt.Language) string {
 import App from './App.vue'
 import './style.css'
 
-const container = document.getElementById('config-root')
-if (container) {
-  createApp(App).mount(container)
-}
+((PLUGIN_ID) => {
+  const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+  const container = document.getElementById('config-root')
+  if (container) {
+    createApp(App).mount(container)
+  }
+})(kintone.$PLUGIN_ID)
 `
 }
 
@@ -604,16 +616,19 @@ func generateSvelteMain(language prompt.Language) string {
 	return `import App from './App.svelte'
 import './style.css'
 
-kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
-  const el = kintone.app.getHeaderSpaceElement()
-  if (el && !el.querySelector('#kpdev-main-root')) {
-    const container = document.createElement('div')
-    container.id = 'kpdev-main-root'
-    el.appendChild(container)
-    new App({ target: container })
-  }
-  return event
-})
+((PLUGIN_ID) => {
+  kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
+    const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+    const el = kintone.app.getHeaderSpaceElement()
+    if (el && !el.querySelector('#kpdev-main-root')) {
+      const container = document.createElement('div')
+      container.id = 'kpdev-main-root'
+      el.appendChild(container)
+      new App({ target: container })
+    }
+    return event
+  })
+})(kintone.$PLUGIN_ID)
 `
 }
 
@@ -621,10 +636,13 @@ func generateSvelteConfigMain(language prompt.Language) string {
 	return `import App from './App.svelte'
 import './style.css'
 
-const container = document.getElementById('config-root')
-if (container) {
-  new App({ target: container })
-}
+((PLUGIN_ID) => {
+  const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+  const container = document.getElementById('config-root')
+  if (container) {
+    new App({ target: container })
+  }
+})(kintone.$PLUGIN_ID)
 `
 }
 
@@ -652,25 +670,31 @@ func generateSvelteApp(target string) string {
 func generateVanillaMain(language prompt.Language) string {
 	return `import './style.css'
 
-kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
-  const el = kintone.app.getHeaderSpaceElement()
-  if (el && !el.querySelector('#kpdev-main-root')) {
-    const container = document.createElement('div')
-    container.id = 'kpdev-main-root'
-    container.innerHTML = '<h1>Hello from kpdev!</h1>'
-    el.appendChild(container)
-  }
-  return event
-})
+((PLUGIN_ID) => {
+  kintone.events.on(['app.record.index.show', 'app.record.detail.show'], (event) => {
+    const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+    const el = kintone.app.getHeaderSpaceElement()
+    if (el && !el.querySelector('#kpdev-main-root')) {
+      const container = document.createElement('div')
+      container.id = 'kpdev-main-root'
+      container.innerHTML = '<h1>Hello from kpdev!</h1>'
+      el.appendChild(container)
+    }
+    return event
+  })
+})(kintone.$PLUGIN_ID)
 `
 }
 
 func generateVanillaConfigMain(language prompt.Language) string {
 	return `import './style.css'
 
-const container = document.getElementById('config-root')
-if (container) {
-  container.innerHTML = '<h1>プラグイン設定</h1><p>設定画面のコンテンツをここに実装してください</p>'
-}
+((PLUGIN_ID) => {
+  const config = kintone.plugin.app.getConfig(PLUGIN_ID)
+  const container = document.getElementById('config-root')
+  if (container) {
+    container.innerHTML = '<h1>プラグイン設定</h1><p>設定画面のコンテンツをここに実装してください</p>'
+  }
+})(kintone.$PLUGIN_ID)
 `
 }
